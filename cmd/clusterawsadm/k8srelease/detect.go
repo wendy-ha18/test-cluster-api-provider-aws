@@ -19,6 +19,7 @@ limitations under the License.
 package k8srelease
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -161,7 +162,7 @@ func fetchAllTags(token string) ([]string, error) {
 	for page := 1; ; page++ {
 		url := fmt.Sprintf("%s?per_page=100&page=%d", githubTagsURL, page)
 
-		req, err := http.NewRequest(http.MethodGet, url, nil)
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
 		if err != nil {
 			return nil, fmt.Errorf("creating request: %w", err)
 		}
@@ -277,7 +278,7 @@ func patchGreater(a, b string) bool {
 	if len(aParts) != 3 || len(bParts) != 3 {
 		return a > b
 	}
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		av, _ := strconv.Atoi(aParts[i])
 		bv, _ := strconv.Atoi(bParts[i])
 		if av != bv {
