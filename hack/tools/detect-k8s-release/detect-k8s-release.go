@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -53,7 +54,7 @@ func fetchAllTags(token string) ([]string, error) {
 	for page := 1; ; page++ {
 		url := fmt.Sprintf("%s?per_page=100&page=%d", githubTagsURL, page)
 
-		req, err := http.NewRequest(http.MethodGet, url, nil)
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
 		if err != nil {
 			return nil, fmt.Errorf("creating request: %w", err)
 		}
@@ -175,7 +176,7 @@ func patchGreater(a, b string) bool {
 	if len(aParts) != 3 || len(bParts) != 3 {
 		return a > b
 	}
-	for idx := 0; idx < 3; idx++ {
+	for idx := range 3 {
 		av, _ := strconv.Atoi(aParts[idx])
 		bv, _ := strconv.Atoi(bParts[idx])
 		if av != bv {
