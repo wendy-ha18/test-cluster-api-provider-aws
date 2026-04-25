@@ -7,7 +7,7 @@ on:
   #   - cron: '0 0 1,15 * *'
   push:
     branches:
-      - '**'
+      - '!main'
   workflow_dispatch: {}
 
 permissions:
