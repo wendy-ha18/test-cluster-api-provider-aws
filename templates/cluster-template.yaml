@@ -29,6 +29,7 @@ spec:
     healthCheckProtocol: HTTPS
   region: "${AWS_REGION}"
   sshKeyName: "${AWS_SSH_KEY_NAME}"
+  imageLookupBaseOS: "${BASE_OS_NAME}"
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane
