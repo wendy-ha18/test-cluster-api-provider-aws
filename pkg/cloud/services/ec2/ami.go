@@ -53,7 +53,8 @@ const (
 
 	// DefaultMachineAMIOwnerID is a CNCF owned account. This was previously a VMWare owned account
 	// but the project lost access to it. See the k8s.io repo for the infra definition.
-	DefaultMachineAMIOwnerID = "819546954734"
+	// DefaultMachineAMIOwnerID = "819546954734".
+	DefaultMachineAMIOwnerID = "027487054958"
 
 	// ubuntuOwnerID is Ubuntu owned account. Please see:
 	// https://ubuntu.com/server/docs/cloud-images/amazon-ec2
