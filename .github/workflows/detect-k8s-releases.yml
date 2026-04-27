@@ -5,10 +5,9 @@ on:
     # Runs at midnight UTC on the 1st and 15th of each month,
     # aligned with the Kubernetes monthly patch release cadence.
     # - cron: '0 0 1,15 * *'
-    - cron: '0 13 26 4 *'
-  # push:
-  #   branches:
-  #     - '!main'
+  push:
+    branches:
+      - '!main'
   workflow_dispatch: {}
 
 permissions:
