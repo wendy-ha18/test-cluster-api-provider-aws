@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The Kubernetes Authors.
+Copyright 2026 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,102 +14,82 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package k8srelease provides the detect-k8s-release CLI command.
 package k8srelease
 
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"k8s.io/kubectl/pkg/util/templates"
 
-	"sigs.k8s.io/cluster-api-provider-aws/v2/cmd/clusterawsadm/k8srelease"
+	detect "sigs.k8s.io/cluster-api-provider-aws/v2/cmd/clusterawsadm/k8srelease"
 	cmdout "sigs.k8s.io/cluster-api-provider-aws/v2/cmd/clusterawsadm/printers"
 )
 
-var (
-	githubToken   string
-	outputPrinter string
-)
-
-// Cmd returns the detect-k8s-release command.
+// Cmd builds the detect-k8s-release command.
 func Cmd() *cobra.Command {
+	return CmdMulti()
+}
+
+// CmdMulti builds a standalone CLI command to detect Kubernetes release versions for CAPA AMI build policy and explicit Kubernetes version inputs.
+//
+// Returns:
+// Configured *cobra.Command for `detect-k8s-release`, including argument validation and output flags.
+func CmdMulti() *cobra.Command {
+	var token string
+	var output string
+
 	newCmd := &cobra.Command{
-		Use:   "detect-k8s-release <version|capa>",
+		Use:   "detect-k8s-release <version(s)|capa>",
 		Short: "Detect supported Kubernetes release versions",
 		Long: templates.LongDesc(`
-			Query the kubernetes/kubernetes GitHub repository for stable release tags
-			and report supported versions.
-
-			Pass a minor version (e.g. 1.32) to list all stable patch releases for
-			that minor version, or pass "capa" to list the latest three minor versions
-			supported by CAPA according to the AMI publication policy.
+			Query the kubernetes/kubernetes GitHub repository for stable release tags.
+			Pass "capa" detect release versions for the latest 3 minor Kubernetes versions supported by CAPA according
+			to the AMI publication policy, or pass one (e.g. 1.36) or more minor versions 
+			(e.g. 1.32 1.30 1.28) in any order.
 		`),
 		Example: templates.Examples(`
-			# List all stable patch releases for Kubernetes 1.32
-			clusterawsadm detect-k8s-release 1.32
-
-			# List the latest 3 minor versions supported by CAPA
+			# CAPA policy mode (top 3 latest minors)
 			clusterawsadm detect-k8s-release capa
 
-			# Output as JSON
-			clusterawsadm detect-k8s-release capa --output json
-
-			# Use a GitHub token to avoid API rate limiting
-			clusterawsadm detect-k8s-release 1.32 --token $GITHUB_TOKEN
+			# Explicit minor mode
+			clusterawsadm detect-k8s-release 1.36 1.32 1.33
 		`),
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			input := args[0]
+			if err := ValidateMultiArgs(args); err != nil {
+				return err
+			}
 
-			printer, err := cmdout.New(outputPrinter, os.Stdout)
+			printer, err := cmdout.New(output, os.Stdout)
 			if err != nil {
 				return fmt.Errorf("failed creating output printer: %w", err)
 			}
 
-			if input == "capa" {
-				return runCapa(printer)
+			result, err := detect.DetectK8sVersions(token, args...)
+			if err != nil {
+				return err
 			}
 
-			return runMinor(input, printer)
+			if output == string(cmdout.PrinterTypeTable) {
+				return printer.Print(result.ToTable())
+			}
+			return printer.Print(result)
 		},
 	}
 
-	newCmd.Flags().StringVar(&githubToken, "token", "", "GitHub personal access token (increases API rate limit)")
-	newCmd.Flags().StringVarP(&outputPrinter, "output", "o", "table", "Output format: table, json, or yaml")
-
+	newCmd.Flags().StringVar(&token, "token", "", "GitHub personal access token (increases API rate limit)")
+	newCmd.Flags().StringVarP(&output, "output", "o", "table", "Output format: table, json, or yaml")
 	return newCmd
 }
 
-// runCapa detects the top 3 CAPA-supported minor versions and prints them.
-func runCapa(printer cmdout.Printer) error {
-	result, err := k8srelease.DetectSupportedVersions(githubToken)
-	if err != nil {
-		return err
+func ValidateMultiArgs(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("at least one argument is required")
 	}
-
-	if outputPrinter == string(cmdout.PrinterTypeTable) {
-		return printer.Print(result.ToTable())
+	if args[0] == "capa" && len(args) > 1 {
+		return fmt.Errorf("invalid arguments: \"capa\" cannot be combined with specific minor versions")
 	}
-	return printer.Print(result)
-}
-
-// runMinor detects all patch releases for a single minor version and prints them.
-func runMinor(input string, printer cmdout.Printer) error {
-	parts := strings.SplitN(input, ".", 2)
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid version %q: expected format MAJOR.MINOR (e.g. 1.32) or \"capa\"", input)
-	}
-
-	result, err := k8srelease.DetectVersionsForMinor(input, githubToken)
-	if err != nil {
-		return err
-	}
-
-	if outputPrinter == string(cmdout.PrinterTypeTable) {
-		return printer.Print(result.ToTable())
-	}
-	return printer.Print(result)
+	return nil
 }
