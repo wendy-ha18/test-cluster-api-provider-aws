@@ -27,20 +27,15 @@ import (
 	cmdout "sigs.k8s.io/cluster-api-provider-aws/v2/cmd/clusterawsadm/printers"
 )
 
-// Cmd builds the detect-k8s-release command.
-func Cmd() *cobra.Command {
-	return CmdMulti()
-}
-
-// CmdMulti builds a standalone CLI command to detect Kubernetes release versions for CAPA AMI build policy and explicit Kubernetes version inputs.
+// Cmd builds a standalone CLI command to detect Kubernetes release versions for CAPA AMI build policy and explicit Kubernetes version inputs.
 //
 // Returns:
 // Configured *cobra.Command for `detect-k8s-release`, including argument validation and output flags.
-func CmdMulti() *cobra.Command {
+func Cmd() *cobra.Command {
 	var token string
 	var output string
 
-	newCmd := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "detect-k8s-release <version(s)|capa>",
 		Short: "Detect supported Kubernetes release versions",
 		Long: templates.LongDesc(`
@@ -79,17 +74,17 @@ func CmdMulti() *cobra.Command {
 		},
 	}
 
-	newCmd.Flags().StringVar(&token, "token", "", "GitHub personal access token (increases API rate limit)")
-	newCmd.Flags().StringVarP(&output, "output", "o", "table", "Output format: table, json, or yaml")
-	return newCmd
+	cmd.Flags().StringVar(&token, "token", "", "GitHub personal access token (increases API rate limit)")
+	cmd.Flags().StringVarP(&output, "output", "o", "table", "Output format: table, json, or yaml")
+	return cmd
 }
 
 func ValidateMultiArgs(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("at least one argument is required")
 	}
-	if args[0] == "capa" && len(args) > 1 {
-		return fmt.Errorf("invalid arguments: \"capa\" cannot be combined with specific minor versions")
+	if args[0] == detect.CapaModeToken && len(args) > 1 {
+		return fmt.Errorf("invalid arguments: %q cannot be combined with specific minor versions", detect.CapaModeToken)
 	}
 	return nil
 }
