@@ -34,11 +34,13 @@ import (
 )
 
 const (
+	// GitHubTagsURL is the endpoint used to fetch Kubernetes release tags.
 	GitHubTagsURL = "https://api.github.com/repos/kubernetes/kubernetes/tags"
 	// LatestVersionCount is the number of minor versions tracked per the CAPA AMI
 	// publication policy: https://cluster-api-aws.sigs.k8s.io/topics/images/built-amis#ami-publication-policy
 	LatestVersionCount = 3
-	CapaModeToken      = "capa"
+	// CapaModeToken is the CLI token selecting CAPA policy mode.
+	CapaModeToken = "capa"
 )
 
 // StableTagRe matches only stable release tags like v1.35.1.
@@ -284,7 +286,7 @@ func GroupByMinor(tags []string) map[string][]string {
 	return groups
 }
 
-func VersionGreater(a, b string, parts int) bool {
+func versionGreater(a, b string, parts int) bool {
 	aParts := strings.SplitN(a, ".", parts)
 	bParts := strings.SplitN(b, ".", parts)
 
@@ -293,7 +295,7 @@ func VersionGreater(a, b string, parts int) bool {
 		return a > b
 	}
 
-	for i := 0; i < parts; i++ {
+	for i := range parts {
 		av, _ := strconv.Atoi(aParts[i])
 		bv, _ := strconv.Atoi(bParts[i])
 
@@ -314,7 +316,7 @@ func VersionGreater(a, b string, parts int) bool {
 // Returns:
 // true when version a is greater than version b; otherwise false.
 func MinorGreater(a, b string) bool {
-	return VersionGreater(a, b, 2)
+	return versionGreater(a, b, 2)
 }
 
 // PatchGreater compares two MAJOR.MINOR.PATCH versions and reports whether a is newer than b.
@@ -326,7 +328,7 @@ func MinorGreater(a, b string) bool {
 // Returns:
 // true when version a is greater than version b; otherwise false.
 func PatchGreater(a, b string) bool {
-	return VersionGreater(a, b, 3)
+	return versionGreater(a, b, 3)
 }
 
 // TopMinors selects the latest/highest minor versions and returns them in descending order.
@@ -363,4 +365,3 @@ func SortPatchesDesc(patches []string) {
 		return PatchGreater(patches[i], patches[j])
 	})
 }
-
