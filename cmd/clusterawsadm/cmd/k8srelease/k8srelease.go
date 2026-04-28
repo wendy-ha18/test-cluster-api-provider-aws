@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package k8srelease contains the clusterawsadm command for Kubernetes release detection.
 package k8srelease
 
 import (
@@ -53,7 +54,7 @@ func Cmd() *cobra.Command {
 		`),
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := ValidateMultiArgs(args); err != nil {
+			if err := validateMultiArgs(args); err != nil {
 				return err
 			}
 
@@ -79,7 +80,7 @@ func Cmd() *cobra.Command {
 	return cmd
 }
 
-func ValidateMultiArgs(args []string) error {
+func validateMultiArgs(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("at least one argument is required")
 	}
