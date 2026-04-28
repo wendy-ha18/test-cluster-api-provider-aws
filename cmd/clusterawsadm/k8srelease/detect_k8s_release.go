@@ -363,3 +363,4 @@ func SortPatchesDesc(patches []string) {
 		return PatchGreater(patches[i], patches[j])
 	})
 }
+
