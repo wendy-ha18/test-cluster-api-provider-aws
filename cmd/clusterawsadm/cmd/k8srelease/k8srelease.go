@@ -63,7 +63,7 @@ func Cmd() *cobra.Command {
 				return fmt.Errorf("failed creating output printer: %w", err)
 			}
 
-			result, err := detect.DetectK8sVersions(token, args...)
+			result, err := detect.DetectK8sVersions(cmd.Context(), token, args...)
 			if err != nil {
 				return err
 			}
