@@ -30,19 +30,11 @@ import (
 	"github.com/blang/semver"
 	"github.com/google/go-github/v53/github"
 	"golang.org/x/oauth2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	// K8sRepoOwner is the GitHub owner of the upstream Kubernetes repository.
-	K8sRepoOwner = "kubernetes"
-	// K8sRepoName is the GitHub name of the upstream Kubernetes repository.
-	K8sRepoName = "kubernetes"
-	// LatestVersionCount is the number of minor versions tracked per the CAPA AMI
-	// publication policy: https://cluster-api-aws.sigs.k8s.io/topics/images/built-amis#ami-publication-policy
-	LatestVersionCount = 3
-	// CapaModeToken is the CLI token selecting CAPA policy mode.
-	CapaModeToken = "capa"
+	// K8sRepo is the OWNER/NAME slug of the upstream Kubernetes repository.
+	K8sRepo = "kubernetes/kubernetes"
 	// tagsPerPage is the page size used when listing tags via the GitHub API.
 	tagsPerPage = 100
 )
@@ -57,24 +49,26 @@ type MinorVersion struct {
 	Patches []string `json:"patches"`
 }
 
-// SupportedVersions is the structured result of a CAPA-policy version query.
+// SupportedVersions is the structured result of a version query.
 type SupportedVersions struct {
 	GeneratedAt string         `json:"generated_at"`
 	Versions    []MinorVersion `json:"versions"`
 }
 
-// DetectK8sVersions returns stable patch releases for CAPA mode or explicit minor inputs.
+// DetectK8sVersions returns stable patch releases for either explicit minor
+// inputs or the top latestN minors when no explicit minors are supplied.
 //
 // Arguments:
 // ctx: Context controlling cancellation and deadlines for the GitHub API requests.
 // token: GitHub token used to query Kubernetes tags API.
-// requestedMinors: Either "capa" or one/more MAJOR.MINOR values (for example, 1.36).
+// latestN: Number of latest minor versions to return when requestedMinors is empty.
+// requestedMinors: Optional explicit MAJOR.MINOR values (for example, 1.36).
 //
 // Returns:
 // Supported minor-to-patch mappings with generation timestamp, or an error.
-func DetectK8sVersions(ctx context.Context, token string, requestedMinors ...string) (*SupportedVersions, error) {
-	if len(requestedMinors) == 0 {
-		return nil, fmt.Errorf("at least one requested minor is required")
+func DetectK8sVersions(ctx context.Context, token string, latestN int, requestedMinors []string) (*SupportedVersions, error) {
+	if len(requestedMinors) == 0 && latestN <= 0 {
+		return nil, fmt.Errorf("either requestedMinors or a positive latestN must be provided")
 	}
 	allTags, err := FetchAllTags(ctx, token)
 	if err != nil {
@@ -85,7 +79,7 @@ func DetectK8sVersions(ctx context.Context, token string, requestedMinors ...str
 		return nil, fmt.Errorf("no stable tags found")
 	}
 	patchesByMinor := GroupByMinor(stableTags)
-	resolvedMinors, err := ResolveRequestedMinors(patchesByMinor, requestedMinors)
+	resolvedMinors, err := ResolveRequestedMinors(patchesByMinor, latestN, requestedMinors)
 	if err != nil {
 		return nil, err
 	}
@@ -96,16 +90,14 @@ func DetectK8sVersions(ctx context.Context, token string, requestedMinors ...str
 //
 // Arguments:
 // patchesByMinor: Map keyed by MAJOR.MINOR to stable patches.
-// requestedMinors: User-requested values where first arg may be "capa".
+// latestN: Number of latest minors to return when requestedMinors is empty.
+// requestedMinors: Optional explicit MAJOR.MINOR inputs.
 //
 // Returns:
 // Ordered minor keys to render, or an error for invalid/unknown/duplicate inputs.
-func ResolveRequestedMinors(patchesByMinor map[string][]string, requestedMinors []string) ([]string, error) {
-	if requestedMinors[0] == CapaModeToken {
-		if len(requestedMinors) > 1 {
-			return nil, fmt.Errorf("invalid inputs to detect k8s releases version(s)")
-		}
-		return TopMinors(patchesByMinor, LatestVersionCount), nil
+func ResolveRequestedMinors(patchesByMinor map[string][]string, latestN int, requestedMinors []string) ([]string, error) {
+	if len(requestedMinors) == 0 {
+		return TopMinors(patchesByMinor, latestN), nil
 	}
 	seen := make(map[string]struct{}, len(requestedMinors))
 	resolved := make([]string, 0, len(requestedMinors))
@@ -118,7 +110,7 @@ func ResolveRequestedMinors(patchesByMinor map[string][]string, requestedMinors 
 			return nil, fmt.Errorf("unknown Kubernetes version %q", minor)
 		}
 		if _, duplicate := seen[minor]; duplicate {
-			return nil, fmt.Errorf("invalid inputs to detect k8s releases version(s)")
+			return nil, fmt.Errorf("duplicate Kubernetes version %q", minor)
 		}
 		seen[minor] = struct{}{}
 		resolved = append(resolved, minor)
@@ -137,7 +129,7 @@ func ParseMinorInput(raw string) (string, error) {
 	normalized := strings.TrimPrefix(strings.TrimSpace(raw), "v")
 	parts := strings.SplitN(normalized, ".", 3)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", fmt.Errorf("invalid version %q: expected format MAJOR.MINOR (e.g. 1.6) or %q", raw, CapaModeToken)
+		return "", fmt.Errorf("invalid version %q: expected format MAJOR.MINOR (e.g. 1.36)", raw)
 	}
 	return normalized, nil
 }
@@ -149,7 +141,7 @@ func ParseMinorInput(raw string) (string, error) {
 // minors: List of MAJOR.MINOR values to include in the result.
 //
 // Returns:
-// *SupportedVersions: a list of minor-to-patches version mapping, or an error.
+// *SupportedVersions: a list of minor-to-patches version mapping.
 func BuildSupportedVersions(patchesByMinor map[string][]string, minors []string) *SupportedVersions {
 	versions := make([]MinorVersion, 0, len(minors))
 	for _, minor := range minors {
@@ -166,32 +158,6 @@ func BuildSupportedVersions(patchesByMinor map[string][]string, minors []string)
 	}
 }
 
-// ToTable converts SupportedVersions to a table representation for CLI output.
-//
-// Arguments:
-// s: SupportedVersions receiver containing minor and patch data.
-//
-// Returns:
-// *metav1.Table where each row contains one minor version and comma-separated patches.
-func (s *SupportedVersions) ToTable() *metav1.Table {
-	table := &metav1.Table{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: metav1.SchemeGroupVersion.String(),
-			Kind:       "Table",
-		},
-		ColumnDefinitions: []metav1.TableColumnDefinition{
-			{Name: "Minor Version", Type: "string"},
-			{Name: "Patch Versions", Type: "string"},
-		},
-	}
-	for _, v := range s.Versions {
-		table.Rows = append(table.Rows, metav1.TableRow{
-			Cells: []interface{}{v.Minor, strings.Join(v.Patches, ", ")},
-		})
-	}
-	return table
-}
-
 // FetchAllTags retrieves all tags from the Kubernetes GitHub repository using
 // the go-github client. Pagination is driven by the API's Link header rather
 // than an "empty page" sentinel, and rate-limit / cancellation are handled by
@@ -204,14 +170,19 @@ func (s *SupportedVersions) ToTable() *metav1.Table {
 // Returns:
 // []string with all tag names in API order, or an error if any request fails.
 func FetchAllTags(ctx context.Context, token string) ([]string, error) {
+	owner, repo, ok := strings.Cut(K8sRepo, "/")
+	if !ok {
+		return nil, fmt.Errorf("invalid K8sRepo %q: expected OWNER/NAME format", K8sRepo)
+	}
+
 	client := github.NewClient(newGitHubHTTPClient(ctx, token))
 
 	var names []string
 	opt := &github.ListOptions{PerPage: tagsPerPage}
 	for {
-		tags, resp, err := client.Repositories.ListTags(ctx, K8sRepoOwner, K8sRepoName, opt)
+		tags, resp, err := client.Repositories.ListTags(ctx, owner, repo, opt)
 		if err != nil {
-			return nil, fmt.Errorf("listing %s/%s tags: %w", K8sRepoOwner, K8sRepoName, err)
+			return nil, fmt.Errorf("listing %s tags: %w", K8sRepo, err)
 		}
 		for _, t := range tags {
 			names = append(names, t.GetName())
