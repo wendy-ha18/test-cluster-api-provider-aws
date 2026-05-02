@@ -20,37 +20,36 @@ package k8srelease
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/blang/semver"
+	"github.com/google/go-github/v53/github"
+	"golang.org/x/oauth2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	// GitHubTagsURL is the endpoint used to fetch Kubernetes release tags.
-	GitHubTagsURL = "https://api.github.com/repos/kubernetes/kubernetes/tags"
+	// K8sRepoOwner is the GitHub owner of the upstream Kubernetes repository.
+	K8sRepoOwner = "kubernetes"
+	// K8sRepoName is the GitHub name of the upstream Kubernetes repository.
+	K8sRepoName = "kubernetes"
 	// LatestVersionCount is the number of minor versions tracked per the CAPA AMI
 	// publication policy: https://cluster-api-aws.sigs.k8s.io/topics/images/built-amis#ami-publication-policy
 	LatestVersionCount = 3
 	// CapaModeToken is the CLI token selecting CAPA policy mode.
 	CapaModeToken = "capa"
+	// tagsPerPage is the page size used when listing tags via the GitHub API.
+	tagsPerPage = 100
 )
 
 // StableTagRe matches only stable release tags like v1.35.1.
 // Pre-release suffixes (alpha, beta, rc) are intentionally not matched.
 var StableTagRe = regexp.MustCompile(`^v1\.(\d+)\.(\d+)$`)
-
-// GitHubTag is one entry from the GitHub tags API response.
-type GitHubTag struct {
-	Name string `json:"name"`
-}
 
 // MinorVersion groups all patch releases under a single Kubernetes minor version.
 type MinorVersion struct {
@@ -67,16 +66,17 @@ type SupportedVersions struct {
 // DetectK8sVersions returns stable patch releases for CAPA mode or explicit minor inputs.
 //
 // Arguments:
+// ctx: Context controlling cancellation and deadlines for the GitHub API requests.
 // token: GitHub token used to query Kubernetes tags API.
 // requestedMinors: Either "capa" or one/more MAJOR.MINOR values (for example, 1.36).
 //
 // Returns:
 // Supported minor-to-patch mappings with generation timestamp, or an error.
-func DetectK8sVersions(token string, requestedMinors ...string) (*SupportedVersions, error) {
+func DetectK8sVersions(ctx context.Context, token string, requestedMinors ...string) (*SupportedVersions, error) {
 	if len(requestedMinors) == 0 {
 		return nil, fmt.Errorf("at least one requested minor is required")
 	}
-	allTags, err := FetchAllTags(token)
+	allTags, err := FetchAllTags(ctx, token)
 	if err != nil {
 		return nil, fmt.Errorf("fetching tags: %w", err)
 	}
@@ -192,60 +192,49 @@ func (s *SupportedVersions) ToTable() *metav1.Table {
 	return table
 }
 
-// FetchAllTags retrieves all tags from the Kubernetes GitHub repository using paginated API requests.
+// FetchAllTags retrieves all tags from the Kubernetes GitHub repository using
+// the go-github client. Pagination is driven by the API's Link header rather
+// than an "empty page" sentinel, and rate-limit / cancellation are handled by
+// the supplied context.
 //
 // Arguments:
+// ctx: Context controlling cancellation and deadlines for the API requests.
 // token: Optional GitHub token used to increase API rate limits.
 //
 // Returns:
-// []string with all tag names in API order, or an error if any request/parse step fails.
-func FetchAllTags(token string) ([]string, error) {
+// []string with all tag names in API order, or an error if any request fails.
+func FetchAllTags(ctx context.Context, token string) ([]string, error) {
+	client := github.NewClient(newGitHubHTTPClient(ctx, token))
+
 	var names []string
-	client := &http.Client{Timeout: 30 * time.Second}
-
-	for page := 1; ; page++ {
-		url := fmt.Sprintf("%s?per_page=100&page=%d", GitHubTagsURL, page)
-
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
+	opt := &github.ListOptions{PerPage: tagsPerPage}
+	for {
+		tags, resp, err := client.Repositories.ListTags(ctx, K8sRepoOwner, K8sRepoName, opt)
 		if err != nil {
-			return nil, fmt.Errorf("creating request: %w", err)
+			return nil, fmt.Errorf("listing %s/%s tags: %w", K8sRepoOwner, K8sRepoName, err)
 		}
-		req.Header.Set("Accept", "application/vnd.github+json")
-		req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-		if token != "" {
-			req.Header.Set("Authorization", "Bearer "+token)
+		for _, t := range tags {
+			names = append(names, t.GetName())
 		}
-
-		resp, err := client.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("fetching tags page %d: %w", page, err)
-		}
-
-		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			return nil, fmt.Errorf("reading response body page %d: %w", page, err)
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("unexpected status %d on page %d: %s", resp.StatusCode, page, body)
-		}
-
-		var tags []GitHubTag
-		if err := json.Unmarshal(body, &tags); err != nil {
-			return nil, fmt.Errorf("decoding tags page %d: %w", page, err)
-		}
-
-		if len(tags) == 0 {
+		if resp.NextPage == 0 {
 			break
 		}
-
-		for _, t := range tags {
-			names = append(names, t.Name)
-		}
+		opt.Page = resp.NextPage
 	}
-
 	return names, nil
+}
+
+// newGitHubHTTPClient returns an HTTP client suitable for the GitHub API.
+// When a token is supplied the client is wrapped in an oauth2 bearer-token
+// transport; otherwise an unauthenticated client (lower rate limit) is used.
+func newGitHubHTTPClient(ctx context.Context, token string) *http.Client {
+	if token == "" {
+		return nil
+	}
+	src := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
+	httpClient := oauth2.NewClient(ctx, src)
+	httpClient.Timeout = 30 * time.Second
+	return httpClient
 }
 
 // FilterStableTags filters tags down to stable Kubernetes patch releases only.
@@ -286,49 +275,14 @@ func GroupByMinor(tags []string) map[string][]string {
 	return groups
 }
 
-func versionGreater(a, b string, parts int) bool {
-	aParts := strings.SplitN(a, ".", parts)
-	bParts := strings.SplitN(b, ".", parts)
-
-	if len(aParts) != parts || len(bParts) != parts {
-		// fallback to string comparison if format is unexpected
-		return a > b
+// parseSemver parses a version string with semver.ParseTolerant. A MAJOR.MINOR
+// input (for example "1.35") is padded to MAJOR.MINOR.0 so that minor-only
+// values can also be compared via the semver ordering.
+func parseSemver(v string) (semver.Version, error) {
+	if strings.Count(v, ".") == 1 {
+		v += ".0"
 	}
-
-	for i := range parts {
-		av, _ := strconv.Atoi(aParts[i])
-		bv, _ := strconv.Atoi(bParts[i])
-
-		if av != bv {
-			return av > bv
-		}
-	}
-
-	return false
-}
-
-// MinorGreater compares two MAJOR.MINOR versions and reports whether a is newer than b.
-//
-// Arguments:
-// a: Left minor version in MAJOR.MINOR format.
-// b: Right minor version in MAJOR.MINOR format.
-//
-// Returns:
-// true when version a is greater than version b; otherwise false.
-func MinorGreater(a, b string) bool {
-	return versionGreater(a, b, 2)
-}
-
-// PatchGreater compares two MAJOR.MINOR.PATCH versions and reports whether a is newer than b.
-//
-// Arguments:
-// a: Left patch version in MAJOR.MINOR.PATCH format.
-// b: Right patch version in MAJOR.MINOR.PATCH format.
-//
-// Returns:
-// true when version a is greater than version b; otherwise false.
-func PatchGreater(a, b string) bool {
-	return versionGreater(a, b, 3)
+	return semver.ParseTolerant(v)
 }
 
 // TopMinors selects the latest/highest minor versions and returns them in descending order.
@@ -345,7 +299,12 @@ func TopMinors(groups map[string][]string, n int) []string {
 		minors = append(minors, m)
 	}
 	sort.Slice(minors, func(i, j int) bool {
-		return MinorGreater(minors[i], minors[j])
+		a, errA := parseSemver(minors[i])
+		b, errB := parseSemver(minors[j])
+		if errA != nil || errB != nil {
+			return minors[i] > minors[j]
+		}
+		return a.GT(b)
 	})
 	if n > len(minors) {
 		n = len(minors)
@@ -362,6 +321,11 @@ func TopMinors(groups map[string][]string, n int) []string {
 // None. The input slice is modified in place.
 func SortPatchesDesc(patches []string) {
 	sort.Slice(patches, func(i, j int) bool {
-		return PatchGreater(patches[i], patches[j])
+		a, errA := parseSemver(patches[i])
+		b, errB := parseSemver(patches[j])
+		if errA != nil || errB != nil {
+			return patches[i] > patches[j]
+		}
+		return a.GT(b)
 	})
 }
