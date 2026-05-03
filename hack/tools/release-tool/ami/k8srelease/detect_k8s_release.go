@@ -51,8 +51,7 @@ type MinorVersion struct {
 
 // SupportedVersions is the structured result of a version query.
 type SupportedVersions struct {
-	GeneratedAt string         `json:"generated_at"`
-	Versions    []MinorVersion `json:"versions"`
+	Versions []MinorVersion `json:"versions"`
 }
 
 // DetectK8sVersions returns stable patch releases for either explicit minor
@@ -153,8 +152,7 @@ func BuildSupportedVersions(patchesByMinor map[string][]string, minors []string)
 		})
 	}
 	return &SupportedVersions{
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		Versions:    versions,
+		Versions: versions,
 	}
 }
 
