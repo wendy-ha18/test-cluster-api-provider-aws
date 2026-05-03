@@ -16,7 +16,7 @@ limitations under the License.
 
 // Package k8srelease wires the `release-tool ami detect-k8s-release` cobra
 // command. The business logic lives in
-// release-tool/ami/k8srelease (imported here as detect).
+// release-tools/ami/k8srelease (imported here as detect).
 package k8srelease
 
 import (
@@ -26,8 +26,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	detect "sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tool/ami/k8srelease"
-	"sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tool/printer"
+	detect "sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tools/ami/k8srelease"
+	"sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tools/printer"
 )
 
 // defaultLatestVersionCount mirrors the CAPA AMI publication policy of tracking
