@@ -85,4 +85,3 @@ PACKER_VAR_FILES=vars.json make build-ami-rhel-8
 - The AMIs are hosted in a CNCF owned AWS account (819546954734).
 - The AWS resources that are needed to support the GitHub Actions workflow are created via terraform. Source is [here](https://github.com/kubernetes/k8s.io/tree/main/infra/aws/terraform/cncf-k8s-infra-aws-capa-ami).
 - OIDC and IAM Roles are used to grant access via short lived credentials to the GitHub Action workflow instance when it runs.
-
