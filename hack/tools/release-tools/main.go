@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"os"
 
-	"sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tool/cmd"
+	"sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tools/cmd"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tool
+module sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tools
 
 go 1.24.0
 

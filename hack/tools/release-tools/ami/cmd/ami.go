@@ -21,7 +21,7 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	k8sreleasecmd "sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tool/ami/cmd/k8srelease"
+	k8sreleasecmd "sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tools/ami/cmd/k8srelease"
 )
 
 // Cmd returns the `ami` subcommand group.
