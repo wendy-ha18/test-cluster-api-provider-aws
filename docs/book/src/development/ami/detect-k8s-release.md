@@ -70,10 +70,16 @@ release-tool ami detect-k8s-release [flags]
 
 | Flag | Default | Description |
 |---|---|---|
-| `--token` | `""` | GitHub personal access token. Optional, but raises the rate limit from 60 req/h (unauthenticated) to 5,000 req/h. The token does **not** need any scopes — public repo tags are readable without auth. |
+| `--token` | `$GITHUB_TOKEN` env var, otherwise `""` | GitHub personal access token. Optional, but raises the rate limit from 60 req/h (unauthenticated) to 5,000 req/h. The token does **not** need any scopes — public repo tags are readable without auth. The flag takes precedence over the environment variable. |
 | `--latest-version-count` | `3` | Number of latest minor Kubernetes versions to return. Mutually exclusive with `--version`. |
 | `--version` | `""` | Comma-separated list of explicit MAJOR.MINOR versions to fetch (e.g. `1.34,1.30`). May be specified at most once; mutually exclusive with `--latest-version-count`. |
 | `--output`, `-o` | `table` | Output format: `table`, `json`, or `yaml`. |
+
+#### Token precedence
+
+1. `--token X` on the command line — highest priority.
+2. `GITHUB_TOKEN` environment variable — automatic fallback.
+3. Unauthenticated — last resort, subject to GitHub's 60 req/h IP rate limit.
 
 ### Mutual-exclusion rules
 
@@ -87,8 +93,10 @@ The CLI rejects ambiguous combinations before making any API calls:
 ### Examples
 
 ```bash
-# Default — latest 3 minor versions, table output
-./bin/release-tool ami detect-k8s-release --token "$GITHUB_TOKEN"
+# Default — latest 3 minor versions, table output.
+# GITHUB_TOKEN is picked up from the environment automatically.
+export GITHUB_TOKEN=ghp_xxx
+./bin/release-tool ami detect-k8s-release
 ```
 
 ```text
@@ -100,18 +108,17 @@ MINOR VERSION  PATCH VERSIONS
 
 ```bash
 # Latest 6 minor versions, JSON
-./bin/release-tool ami detect-k8s-release \
-  --token "$GITHUB_TOKEN" \
-  --latest-version-count 6 \
-  --output json
+./bin/release-tool ami detect-k8s-release --latest-version-count 6 --output json
 ```
 
 ```bash
 # Specific minors, YAML
-./bin/release-tool ami detect-k8s-release \
-  --token "$GITHUB_TOKEN" \
-  --version 1.34,1.30 \
-  -o yaml
+./bin/release-tool ami detect-k8s-release --version 1.34,1.30 -o yaml
+```
+
+```bash
+# Override the token explicitly (takes precedence over $GITHUB_TOKEN)
+./bin/release-tool ami detect-k8s-release --token ghp_yyy
 ```
 
 ```yaml
@@ -183,12 +190,11 @@ whenever the generated config changes:
 
 - name: Detect latest K8s releases (CAPA policy)
   env:
+    # The CLI picks this up automatically; no --token flag required.
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   run: |
     mkdir -p hack/tools/release-tools/ami/k8srelease/data
-    ./bin/release-tool ami detect-k8s-release \
-      --token "$GITHUB_TOKEN" \
-      --output json \
+    ./bin/release-tool ami detect-k8s-release --output json \
       > hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig.json
 
 - name: Open PR if versions changed
