@@ -11,9 +11,11 @@ on:
     inputs:
       versions:
         description: >-
-          Optional comma-separated list of K8s patch versions (e.g. v1.36.0,v1.35.4).
-          When empty, the workflow falls back to diffing AMIBuildConfig.json against
-          the previous commit (push trigger behaviour).
+          Optional comma-separated list of K8s patch versions to force-build
+          (e.g. v1.36.0,v1.35.4). When empty, the workflow auto-detects target
+          versions by comparing AMIBuildConfig.json against AMIs already
+          published in the configured AWS account/region/OS via
+          `clusterawsadm ami list`.
         required: false
         default: ""
 
@@ -34,33 +36,86 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
-          fetch-depth: 2
+          go-version-file: go.mod
+
+      - name: Build clusterawsadm
+        # Plain `go build` (no LDFLAGS / hack/version.sh) — we only need the
+        # binary to call `ami list`, version metadata is irrelevant.
+        run: go build -o bin/clusterawsadm ./cmd/clusterawsadm
+
+      - name: Configure AWS credentials
+        # Required for `clusterawsadm ami list` to call ec2:DescribeImages.
+        # Reuses the same role as the build job; that role must have
+        # ec2:DescribeImages on AMIs owned by ${OWNER_ID} (CAPA AMIs are public,
+        # so DescribeImages on any role with the action allowed is sufficient).
+        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
+        with:
+          aws-region: ap-southeast-2
+          role-to-assume: arn:aws:iam::027487054958:role/gh-image-builder
 
       - name: Determine target K8s versions
         id: versions
         env:
           MANUAL_VERSIONS: ${{ inputs.versions }}
           CONFIG_PATH: hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig1.json
+          OWNER_ID: '027487054958'
+          REGION: ap-southeast-2
+          # clusterawsadm uses dotted OS slugs (ubuntu-22.04), image-builder
+          # uses hyphenated ones (ubuntu-2204). Keep these aligned with the
+          # matrix in build-and-publish-ami.yml.
+          OS: ubuntu-22.04
         run: |
           set -euo pipefail
           if [ -n "${MANUAL_VERSIONS}" ]; then
+            # Manual override: build exactly these versions, skip the
+            # already-published check entirely.
             tr ',' '\n' <<< "${MANUAL_VERSIONS}" \
               | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; /^$/d; s/^([0-9])/v\1/' \
               | sort -u > /tmp/target-versions.txt
           else
-            curr=$(jq -r '.versions[].patches[] | "v\(.)"' "${CONFIG_PATH}" | sort -u)
-            if git cat-file -e "HEAD~1:${CONFIG_PATH}" 2>/dev/null; then
-              prev=$(git show "HEAD~1:${CONFIG_PATH}" \
-                      | jq -r '.versions[].patches[] | "v\(.)"' | sort -u)
-            else
-              prev=""
-            fi
-            comm -13 <(echo "${prev}") <(echo "${curr}") > /tmp/target-versions.txt
+            # All patches declared in AMIBuildConfig*.json (with v prefix).
+            jq -r '.versions[].patches[] | "v\(.)"' "${CONFIG_PATH}" \
+              | sort -u > /tmp/all-versions.txt
+
+            # Versions already published as AMIs in the destination account
+            # for the configured region + OS. NOTE: `clusterawsadm ami list`
+            # without --kubernetes-version has an internal filter (last 3
+            # minor releases, excluding x.x.0 patches). Versions outside that
+            # window will appear "missing" here and be re-built, even when an
+            # AMI actually exists. See cmd/clusterawsadm/ami/helper.go.
+            ./bin/clusterawsadm ami list \
+              --owner-id "${OWNER_ID}" \
+              --region "${REGION}" \
+              --os "${OS}" \
+              -o json > /tmp/ami-list.json
+
+            # Filter the raw list to entries matching our exact region+os
+            # (defence in depth — clusterawsadm already filters server-side,
+            # but we re-check client-side so spec drift can't silently
+            # produce false positives).
+            jq -r --arg region "${REGION}" --arg os "${OS}" \
+              '.items[]?
+                | select(.spec.region == $region and .spec.os == $os)
+                | .spec.kubernetesVersion' \
+              /tmp/ami-list.json \
+              | sort -u > /tmp/published-versions.txt
+
+            echo "Versions in ${CONFIG_PATH}:"
+            cat /tmp/all-versions.txt
+            echo "Versions already published in ${REGION}/${OS} for owner ${OWNER_ID}:"
+            cat /tmp/published-versions.txt
+
+            # Target = config - published (set difference).
+            comm -23 /tmp/all-versions.txt /tmp/published-versions.txt \
+              > /tmp/target-versions.txt
           fi
           count=$(wc -l < /tmp/target-versions.txt | tr -d ' ')
           echo "count=${count}" >> "${GITHUB_OUTPUT}"
-          echo "Target versions (${count}):"
+          echo "Target versions to build (${count}):"
           cat /tmp/target-versions.txt || true
 
       - name: Build matrix from packer inputs
