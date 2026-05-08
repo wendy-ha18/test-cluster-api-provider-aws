@@ -55,7 +55,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
         with:
           aws-region: ap-southeast-2
-          role-to-assume: arn:aws:iam::027487054958:user/Wendy
+          role-to-assume: arn:aws:iam::027487054958:role/gh-image-builder
 
       - name: Determine target K8s versions
         id: versions
