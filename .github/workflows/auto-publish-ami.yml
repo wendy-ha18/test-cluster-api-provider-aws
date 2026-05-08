@@ -41,7 +41,7 @@ jobs:
         id: versions
         env:
           MANUAL_VERSIONS: ${{ inputs.versions }}
-          CONFIG_PATH: hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig.json
+          CONFIG_PATH: hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig1.json
         run: |
           set -euo pipefail
           if [ -n "${MANUAL_VERSIONS}" ]; then
