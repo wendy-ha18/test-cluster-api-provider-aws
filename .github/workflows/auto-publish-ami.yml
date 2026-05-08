@@ -1,0 +1,149 @@
+name: auto-publish-ami
+
+on:
+  push:
+    branches:
+      # - main
+      - "*"
+    paths:
+      - hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig.json
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: >-
+          Optional comma-separated list of K8s patch versions (e.g. v1.36.0,v1.35.4).
+          When empty, the workflow falls back to diffing AMIBuildConfig.json against
+          the previous commit (push trigger behaviour).
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch:
+    name: Derive packer inputs and dispatch build-ami
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 2
+
+      - name: Determine target K8s versions
+        id: versions
+        env:
+          MANUAL_VERSIONS: ${{ inputs.versions }}
+          CONFIG_PATH: hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig.json
+        run: |
+          set -euo pipefail
+          if [ -n "${MANUAL_VERSIONS}" ]; then
+            tr ',' '\n' <<< "${MANUAL_VERSIONS}" \
+              | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; /^$/d; s/^([0-9])/v\1/' \
+              | sort -u > /tmp/target-versions.txt
+          else
+            curr=$(jq -r '.versions[].patches[] | "v\(.)"' "${CONFIG_PATH}" | sort -u)
+            if git cat-file -e "HEAD~1:${CONFIG_PATH}" 2>/dev/null; then
+              prev=$(git show "HEAD~1:${CONFIG_PATH}" \
+                      | jq -r '.versions[].patches[] | "v\(.)"' | sort -u)
+            else
+              prev=""
+            fi
+            comm -13 <(echo "${prev}") <(echo "${curr}") > /tmp/target-versions.txt
+          fi
+          count=$(wc -l < /tmp/target-versions.txt | tr -d ' ')
+          echo "count=${count}" >> "${GITHUB_OUTPUT}"
+          echo "Target versions (${count}):"
+          cat /tmp/target-versions.txt || true
+
+      - name: Derive packer inputs and dispatch build-ami.yml per version
+        if: steps.versions.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          # parse_inputs reads the trailing 'Key : Value' block printed by
+          # find-ami-publishing-inputs.sh and emits KEY=value pairs suitable
+          # for `export`. Matching is anchored on the script's exact labels.
+          parse_inputs() {
+            awk -F' *: *' '
+              /^K8s Semver/               { print "K8S_SEMVER="      $2 }
+              /^K8s Release Series/       { print "K8S_SERIES="      $2 }
+              /^K8s RPM Package Version/  { print "K8S_RPM_VERSION=" $2 }
+              /^K8s Deb Package Version/  { print "K8S_DEB_VERSION=" $2 }
+              /^CNI Semver/               { print "CNI_SEMVER="      $2 }
+              /^CNI Deb Package Version/  { print "CNI_DEB_VERSION=" $2 }
+              /^CRICTL Version/           { print "CRICTL_VERSION="  $2 }
+            ' <<< "$1"
+          }
+
+          failures=()
+          while IFS= read -r v; do
+            [ -z "$v" ] && continue
+
+            echo "::group::Derive inputs for ${v}"
+            if ! out=$(./scripts/find-ami-publishing-inputs.sh "${v}" 2>&1); then
+              echo "${out}"
+              echo "::endgroup::"
+              echo "::error::find-ami-publishing-inputs.sh failed for ${v}"
+              failures+=("${v}")
+              continue
+            fi
+            echo "${out}"
+            echo "::endgroup::"
+
+            # Reset before each iteration so a partial parse can't leak
+            # values from the previous version into the dispatch call.
+            unset K8S_SEMVER K8S_SERIES K8S_RPM_VERSION K8S_DEB_VERSION \
+                  CNI_SEMVER CNI_DEB_VERSION CRICTL_VERSION
+            while IFS= read -r line; do
+              # shellcheck disable=SC2163
+              export "$line"
+            done < <(parse_inputs "${out}")
+
+            for var in K8S_SEMVER K8S_SERIES K8S_RPM_VERSION K8S_DEB_VERSION \
+                       CNI_SEMVER CNI_DEB_VERSION CRICTL_VERSION; do
+              if [ -z "${!var:-}" ]; then
+                echo "::error::missing ${var} after parsing script output for ${v}"
+                failures+=("${v}")
+                continue 2
+              fi
+            done
+
+            echo "::group::Dispatch build-ami.yml for ${v}"
+            gh workflow run build-ami.yml \
+              --repo "${GH_REPO}" \
+              --ref "${REF}" \
+              -f k8s_semver="${K8S_SEMVER}" \
+              -f k8s_series="${K8S_SERIES}" \
+              -f k8s_rpm_version="${K8S_RPM_VERSION}" \
+              -f k8s_deb_version="${K8S_DEB_VERSION}" \
+              -f cni_semver="${CNI_SEMVER}" \
+              -f cni_deb_version="${CNI_DEB_VERSION}" \
+              -f crictl_version="${CRICTL_VERSION}"
+            echo "::endgroup::"
+          done < /tmp/target-versions.txt
+
+          if [ "${#failures[@]}" -ne 0 ]; then
+            echo "::error::failed to dispatch build-ami for: ${failures[*]}"
+            exit 1
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### auto-publish-ami summary"
+            echo
+            echo "- Target versions: ${{ steps.versions.outputs.count }}"
+            if [ -f /tmp/target-versions.txt ]; then
+              echo
+              echo '```'
+              cat /tmp/target-versions.txt
+              echo '```'
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
