@@ -5,8 +5,6 @@ This section lists the Kubernetes versions tracked by this repository following 
 | Minor Version | Patch Versions |
 | --- | --- |
 | `1.36` | `1.36.0` |
-| `1.35` | `1.35.4`, `1.35.3`, `1.35.2`, `1.35.1`, `1.35.0` |
-| `1.34` | `1.34.7`, `1.34.6`, `1.34.5`, `1.34.4`, `1.34.3`, `1.34.2`, `1.34.1`, `1.34.0` |
 
 ## CAPA AMI
 
@@ -25,7 +23,6 @@ The table below lists all AMIs currently published in AWS account `027487054958`
 List of OS for which AMIs should be published (default):
 
 - ubuntu-24.04
-- ubuntu-22.04
 
 ### Default Region
 
@@ -38,27 +35,4 @@ List of regions for which AMIs should be published (default):
 | Kubernetes Version | OS | Region |
 | --- | --- | --- |
 | `v1.36.0` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.36.0` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.35.4` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.35.4` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.35.3` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.35.3` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.35.1` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.35.0` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.35.0` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.7` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.7` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.6` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.6` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.5` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.5` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.4` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.4` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.3` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.3` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.2` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.2` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.1` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.1` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.0` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.0` | ubuntu-22.04 | ap-southeast-2 |
+

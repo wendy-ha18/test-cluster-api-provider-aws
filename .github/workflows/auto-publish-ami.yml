@@ -55,7 +55,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
         with:
           aws-region: ap-southeast-2
-          role-to-assume: arn:aws:iam::027487054958:role/gh-image-builder
+          role-to-assume: arn:aws:iam::027487054958:user/Wendy
 
       - name: Determine target K8s versions
         id: versions
@@ -64,10 +64,10 @@ jobs:
           CONFIG_PATH: hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig1.json
           OWNER_ID: '027487054958'
           REGION: ap-southeast-2
-          # clusterawsadm uses dotted OS slugs (ubuntu-22.04), image-builder
-          # uses hyphenated ones (ubuntu-2204). Keep these aligned with the
+          # clusterawsadm uses dotted OS slugs (ubuntu-24.04), image-builder
+          # uses hyphenated ones (ubuntu-2404). Keep these aligned with the
           # matrix in build-and-publish-ami.yml.
-          OS: ubuntu-22.04
+          OS: ubuntu-24.04
         run: |
           set -euo pipefail
           if [ -n "${MANUAL_VERSIONS}" ]; then

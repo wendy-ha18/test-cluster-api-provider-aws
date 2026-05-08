@@ -23,11 +23,11 @@ set -euo pipefail
 # ── Configuration ──────────────────────────────────────────────────────────
 
 OWNER_ID="${OWNER_ID:-027487054958}"
-K8S_CONFIG_PATH="${K8S_CONFIG_PATH:-hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig.json}"
+K8S_CONFIG_PATH="${K8S_CONFIG_PATH:-hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig1.json}"
 OUTPUT_DIR="${OUTPUT_DIR:-hack/tools/release-tools/ami/report}"
 
 # Default scope for the Missing AMI comparison (space-separated).
-DEFAULT_OS_LIST="${DEFAULT_OS_LIST:-ubuntu-24.04 ubuntu-22.04}"
+DEFAULT_OS_LIST="${DEFAULT_OS_LIST:-ubuntu-24.04}"
 DEFAULT_REGION_LIST="${DEFAULT_REGION_LIST:-ap-southeast-2}"
 
 # ── Boilerplate ────────────────────────────────────────────────────────────
