@@ -46,11 +46,7 @@ The list of all AMIs currently published in the CAPA AWS account,
 as returned by `clusterawsadm ami list`.
 
 <!-- $ami-table -->
-| AMI Name | Kubernetes Version | OS | Region | AMI ID |
-| --- | --- | --- | --- | --- |
-| `capa-ami-ubuntu-24.04-v1.35.3-1778395590` | `v1.35.3` | ubuntu-24.04 | ap-southeast-2 | `ami-05c4b2006be0a8557` |
-| `capa-ami-ubuntu-22.04-v1.35.2-1773582653` | `v1.35.2` | ubuntu-22.04 | ap-southeast-2 | `ami-04136e76627f61a0b` |
-| `capa-ami-ubuntu-22.04-v1.35.1-1773640135` | `v1.35.1` | ubuntu-22.04 | ap-southeast-2 | `ami-01da8306336074553` |
+_No AMIs found._
 ## Missing AMIs
 
 AMIs that should be published for the Kubernetes versions in the Supported Kubernetes Release table above, but are not yet available.
@@ -66,14 +62,17 @@ AMIs that should be published for the Kubernetes versions in the Supported Kuber
 | `v1.35.4` | ubuntu-24.04 | us-west-2 |
 | `v1.35.4` | ubuntu-22.04 | ap-southeast-2 |
 | `v1.35.4` | ubuntu-22.04 | us-west-2 |
+| `v1.35.3` | ubuntu-24.04 | ap-southeast-2 |
 | `v1.35.3` | ubuntu-24.04 | us-west-2 |
 | `v1.35.3` | ubuntu-22.04 | ap-southeast-2 |
 | `v1.35.3` | ubuntu-22.04 | us-west-2 |
 | `v1.35.2` | ubuntu-24.04 | ap-southeast-2 |
 | `v1.35.2` | ubuntu-24.04 | us-west-2 |
+| `v1.35.2` | ubuntu-22.04 | ap-southeast-2 |
 | `v1.35.2` | ubuntu-22.04 | us-west-2 |
 | `v1.35.1` | ubuntu-24.04 | ap-southeast-2 |
 | `v1.35.1` | ubuntu-24.04 | us-west-2 |
+| `v1.35.1` | ubuntu-22.04 | ap-southeast-2 |
 | `v1.35.1` | ubuntu-22.04 | us-west-2 |
 | `v1.35.0` | ubuntu-24.04 | ap-southeast-2 |
 | `v1.35.0` | ubuntu-24.04 | us-west-2 |
