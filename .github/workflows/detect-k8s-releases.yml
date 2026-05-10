@@ -11,7 +11,8 @@ on:
   workflow_dispatch: {}
 
 env:
-  AWS_ACCOUNT_ID: "027487054958"
+  # AWS_ACCOUNT_ID: "027487054958" 
+  AWS_ACCOUNT_ID: "819546954734"
   AWS_REGION: "ap-southeast-2" # single region used for OIDC authentication
 
 jobs:
