@@ -27,6 +27,10 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  DEFAULT_REGIONS: "ap-southeast-2"
+  AWS_ACCOUNT_ID: "027487054958"
+
 jobs:
   buildandpublish:
     name: Build and publish CAPA AMIs
@@ -48,8 +52,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
         with:
-          aws-region: ap-southeast-2
-          role-to-assume: arn:aws:iam::027487054958:role/gh-image-builder
+          aws-region: ${{ env.DEFAULT_REGIONS }}
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/gh-image-builder
       - name: Install deps
         run: make deps-ami
         working-directory: ./images/capi

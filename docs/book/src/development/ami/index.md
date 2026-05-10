@@ -8,3 +8,4 @@ CAPA AMI catalogue current.
 - [Detect Kubernetes Release Versions](./detect-k8s-release.md) — query the
   upstream `kubernetes/kubernetes` repository for the stable release
   versions that the CAPA AMI publication policy should track.
+- [CAPA AMIs Inventory](./ami-inventory.md) — report AMIs inventory.
