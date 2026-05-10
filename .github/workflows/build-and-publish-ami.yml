@@ -82,7 +82,8 @@ permissions:
   contents: read
 
 env:
-  DEFAULT_REGIONS: "ap-southeast-2"
+  # DEFAULT_REGIONS: "ap-southeast-2"
+  DEFAULT_REGIONS: "us-east-2"
   AWS_ACCOUNT_ID: "027487054958"
 
 jobs:
