@@ -31,7 +31,7 @@ DEFAULT_REGIONS="${DEFAULT_REGIONS:-ap-southeast-2}"
 
 # DEFAULT_OS matches matrix.target in build-and-publish-ami.yml.
 # Space-separated to support multiple OS values.
-DEFAULT_OS="${DEFAULT_OS:-ubuntu-24.04 ubuntu-22.04}"
+DEFAULT_OS="${DEFAULT_OS:-ubuntu-24.04}"
 
 K8S_CONFIG_PATH="${K8S_CONFIG_PATH:-hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig.json}"
 TARGET_FILE="${TARGET_FILE:-docs/book/src/development/ami/ami-inventory.md}"
