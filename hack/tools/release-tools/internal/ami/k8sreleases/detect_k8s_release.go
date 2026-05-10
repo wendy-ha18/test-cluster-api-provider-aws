@@ -14,9 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package k8srelease provides utilities for detecting stable Kubernetes
+// Package k8sreleases provides utilities for detecting stable Kubernetes
 // releases from the kubernetes/kubernetes GitHub repository.
-package k8srelease
+package k8sreleases
 
 import (
 	"context"
@@ -33,15 +33,15 @@ import (
 )
 
 const (
-	// K8sRepo is the OWNER/NAME slug of the upstream Kubernetes repository.
-	K8sRepo = "kubernetes/kubernetes"
+	// k8sRepo is the OWNER/NAME slug of the upstream Kubernetes repository.
+	k8sRepo = "kubernetes/kubernetes"
 	// tagsPerPage is the page size used when listing tags via the GitHub API.
 	tagsPerPage = 100
 )
 
-// StableTagRe matches only stable release tags like v1.35.1.
+// stableTagRe matches only stable release tags like v1.35.1.
 // Pre-release suffixes (alpha, beta, rc) are intentionally not matched.
-var StableTagRe = regexp.MustCompile(`^v1\.(\d+)\.(\d+)$`)
+var stableTagRe = regexp.MustCompile(`^v1\.(\d+)\.(\d+)$`)
 
 // MinorVersion groups all patch releases under a single Kubernetes minor version.
 type MinorVersion struct {
@@ -69,23 +69,22 @@ func DetectK8sVersions(ctx context.Context, token string, latestN int, requested
 	if len(requestedMinors) == 0 && latestN <= 0 {
 		return nil, fmt.Errorf("either requestedMinors or a positive latestN must be provided")
 	}
-	allTags, err := FetchAllTags(ctx, token)
+	stableTags, err := fetchTags(ctx, token)
 	if err != nil {
 		return nil, fmt.Errorf("fetching tags: %w", err)
 	}
-	stableTags := FilterStableTags(allTags)
 	if len(stableTags) == 0 {
 		return nil, fmt.Errorf("no stable tags found")
 	}
-	patchesByMinor := GroupByMinor(stableTags)
-	resolvedMinors, err := ResolveRequestedMinors(patchesByMinor, latestN, requestedMinors)
+	patchesByMinor := groupByMinor(stableTags)
+	resolvedMinors, err := resolveRequestedMinors(patchesByMinor, latestN, requestedMinors)
 	if err != nil {
 		return nil, err
 	}
-	return BuildSupportedVersions(patchesByMinor, resolvedMinors), nil
+	return buildSupportedVersions(patchesByMinor, resolvedMinors), nil
 }
 
-// ResolveRequestedMinors resolves requested minor inputs into final MAJOR.MINOR keys.
+// resolveRequestedMinors resolves requested minor inputs into final MAJOR.MINOR keys.
 //
 // Arguments:
 // patchesByMinor: Map keyed by MAJOR.MINOR to stable patches.
@@ -94,14 +93,14 @@ func DetectK8sVersions(ctx context.Context, token string, latestN int, requested
 //
 // Returns:
 // Ordered minor keys to render, or an error for invalid/unknown/duplicate inputs.
-func ResolveRequestedMinors(patchesByMinor map[string][]string, latestN int, requestedMinors []string) ([]string, error) {
+func resolveRequestedMinors(patchesByMinor map[string][]string, latestN int, requestedMinors []string) ([]string, error) {
 	if len(requestedMinors) == 0 {
-		return TopMinors(patchesByMinor, latestN), nil
+		return topMinors(patchesByMinor, latestN), nil
 	}
 	seen := make(map[string]struct{}, len(requestedMinors))
 	resolved := make([]string, 0, len(requestedMinors))
 	for _, raw := range requestedMinors {
-		minor, err := ParseMinorInput(raw)
+		minor, err := parseMinorInput(raw)
 		if err != nil {
 			return nil, err
 		}
@@ -117,14 +116,14 @@ func ResolveRequestedMinors(patchesByMinor map[string][]string, latestN int, req
 	return resolved, nil
 }
 
-// ParseMinorInput normalizes and validates one MAJOR.MINOR input.
+// parseMinorInput normalizes and validates one MAJOR.MINOR input.
 //
 // Arguments:
 // raw: Raw user-provided minor version, optionally with "v" prefix.
 //
 // Returns:
 // Normalized MAJOR.MINOR value (without "v"), or an error.
-func ParseMinorInput(raw string) (string, error) {
+func parseMinorInput(raw string) (string, error) {
 	normalized := strings.TrimPrefix(strings.TrimSpace(raw), "v")
 	parts := strings.SplitN(normalized, ".", 3)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
@@ -133,7 +132,7 @@ func ParseMinorInput(raw string) (string, error) {
 	return normalized, nil
 }
 
-// BuildSupportedVersions builds a SupportedVersions struct from the given patches by minor.
+// buildSupportedVersions builds a SupportedVersions struct from the given patches by minor.
 //
 // Arguments:
 // patchesByMinor: Map keyed by MAJOR.MINOR to stable patches.
@@ -141,11 +140,11 @@ func ParseMinorInput(raw string) (string, error) {
 //
 // Returns:
 // *SupportedVersions: a list of minor-to-patches version mapping.
-func BuildSupportedVersions(patchesByMinor map[string][]string, minors []string) *SupportedVersions {
+func buildSupportedVersions(patchesByMinor map[string][]string, minors []string) *SupportedVersions {
 	versions := make([]MinorVersion, 0, len(minors))
 	for _, minor := range minors {
 		patches := append([]string(nil), patchesByMinor[minor]...)
-		SortPatchesDesc(patches)
+		sortPatchesDesc(patches)
 		versions = append(versions, MinorVersion{
 			Minor:   minor,
 			Patches: patches,
@@ -156,41 +155,42 @@ func BuildSupportedVersions(patchesByMinor map[string][]string, minors []string)
 	}
 }
 
-// FetchAllTags retrieves all tags from the Kubernetes GitHub repository using
-// the go-github client. Pagination is driven by the API's Link header rather
-// than an "empty page" sentinel, and rate-limit / cancellation are handled by
-// the supplied context.
+// fetchTags retrieves all stable release tags from the Kubernetes GitHub
+// repository. It paginates through all results and filters out pre-release
+// tags (alpha, beta, rc), returning only stable MAJOR.MINOR.PATCH tags.
 //
 // Arguments:
 // ctx: Context controlling cancellation and deadlines for the API requests.
 // token: Optional GitHub token used to increase API rate limits.
 //
 // Returns:
-// []string with all tag names in API order, or an error if any request fails.
-func FetchAllTags(ctx context.Context, token string) ([]string, error) {
-	owner, repo, ok := strings.Cut(K8sRepo, "/")
+// []string of stable tag names, or an error if any request fails.
+func fetchTags(ctx context.Context, token string) ([]string, error) {
+	owner, repo, ok := strings.Cut(k8sRepo, "/")
 	if !ok {
-		return nil, fmt.Errorf("invalid K8sRepo %q: expected OWNER/NAME format", K8sRepo)
+		return nil, fmt.Errorf("invalid k8sRepo %q: expected OWNER/NAME format", k8sRepo)
 	}
 
 	client := github.NewClient(newGitHubHTTPClient(ctx, token))
 
-	var names []string
+	var stable []string
 	opt := &github.ListOptions{PerPage: tagsPerPage}
 	for {
 		tags, resp, err := client.Repositories.ListTags(ctx, owner, repo, opt)
 		if err != nil {
-			return nil, fmt.Errorf("listing %s tags: %w", K8sRepo, err)
+			return nil, fmt.Errorf("listing %s tags: %w", k8sRepo, err)
 		}
 		for _, t := range tags {
-			names = append(names, t.GetName())
+			if name := t.GetName(); stableTagRe.MatchString(name) {
+				stable = append(stable, name)
+			}
 		}
 		if resp.NextPage == 0 {
 			break
 		}
 		opt.Page = resp.NextPage
 	}
-	return names, nil
+	return stable, nil
 }
 
 // newGitHubHTTPClient returns an HTTP client suitable for the GitHub API.
@@ -206,31 +206,14 @@ func newGitHubHTTPClient(ctx context.Context, token string) *http.Client {
 	return httpClient
 }
 
-// FilterStableTags filters tags down to stable Kubernetes patch releases only.
-//
-// Arguments:
-// tags: Raw Kubernetes tag names returned by the GitHub API.
-//
-// Returns:
-// []string containing only stable tags that match MAJOR.MINOR.PATCH format.
-func FilterStableTags(tags []string) []string {
-	var stable []string
-	for _, tag := range tags {
-		if StableTagRe.MatchString(tag) {
-			stable = append(stable, tag)
-		}
-	}
-	return stable
-}
-
-// GroupByMinor groups stable patch tags by MAJOR.MINOR key.
+// groupByMinor groups stable patch tags by MAJOR.MINOR key.
 //
 // Arguments:
 // tags: Stable tags expected with a leading "v" prefix (for example, "v1.35.4").
 //
 // Returns:
 // map[string][]string keyed by MAJOR.MINOR without "v", with patch versions as values.
-func GroupByMinor(tags []string) map[string][]string {
+func groupByMinor(tags []string) map[string][]string {
 	groups := make(map[string][]string)
 	for _, tag := range tags {
 		ver := strings.TrimPrefix(tag, "v")
@@ -254,7 +237,7 @@ func parseSemver(v string) (semver.Version, error) {
 	return semver.ParseTolerant(v)
 }
 
-// TopMinors selects the latest/highest minor versions and returns them in descending order.
+// topMinors selects the latest/highest minor versions and returns them in descending order.
 //
 // Arguments:
 // groups: Map keyed by MAJOR.MINOR containing grouped patch versions.
@@ -262,7 +245,7 @@ func parseSemver(v string) (semver.Version, error) {
 //
 // Returns:
 // []string of up to n latest MAJOR.MINOR versions sorted descending.
-func TopMinors(groups map[string][]string, n int) []string {
+func topMinors(groups map[string][]string, n int) []string {
 	minors := make([]string, 0, len(groups))
 	for m := range groups {
 		minors = append(minors, m)
@@ -278,14 +261,14 @@ func TopMinors(groups map[string][]string, n int) []string {
 	return minors[:n]
 }
 
-// SortPatchesDesc sorts patch versions in-place from newest to oldest.
+// sortPatchesDesc sorts patch versions in-place from newest to oldest.
 //
 // Arguments:
 // patches: Slice of MAJOR.MINOR.PATCH versions to sort.
 //
 // Returns:
 // None. The input slice is modified in place.
-func SortPatchesDesc(patches []string) {
+func sortPatchesDesc(patches []string) {
 	sort.Slice(patches, func(i, j int) bool {
 		a, _ := parseSemver(patches[i])
 		b, _ := parseSemver(patches[j])

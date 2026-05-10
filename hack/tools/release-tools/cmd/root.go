@@ -21,7 +21,7 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	amicmd "sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tools/ami/cmd"
+	amicmd "sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tools/cmd/ami"
 )
 
 // Root returns the top-level `release-tool` cobra command.

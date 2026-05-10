@@ -14,10 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package k8srelease wires the `release-tool ami detect-k8s-release` cobra
-// command. The business logic lives in
-// release-tools/ami/k8srelease (imported here as detect).
-package k8srelease
+package ami
 
 import (
 	"fmt"
@@ -26,7 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	detect "sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tools/ami/k8srelease"
+	detect "sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tools/internal/ami/k8sreleases"
 	"sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tools/printer"
 )
 
@@ -35,8 +32,8 @@ import (
 // https://cluster-api-aws.sigs.k8s.io/topics/images/built-amis#ami-publication-policy
 const defaultLatestVersionCount = 3
 
-// Cmd returns the `detect-k8s-release` cobra command.
-func Cmd() *cobra.Command {
+// detectK8sReleaseCmd returns the `detect-k8s-release` cobra command.
+func detectK8sReleaseCmd() *cobra.Command {
 	var (
 		token              string
 		latestVersionCount int
@@ -53,7 +50,7 @@ By default returns the latest 3 minor Kubernetes versions (the CAPA AMI build
 policy). Use --latest-version-count to change the count, or --version to
 request specific minors. The --version flag may be specified at most once;
 to request multiple minors, pass them as a comma-separated list.`,
-		Example: `  
+		Example: `
   # Set GITHUB_TOKEN environment variable
   export GITHUB_TOKEN=ghp_xxx
 
@@ -65,7 +62,7 @@ to request multiple minors, pass them as a comma-separated list.`,
 
   # Specific minors (comma-separated, single --version flag)
   release-tool ami detect-k8s-release --version 1.34,1.30`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if err := assertNoDuplicateFlags(os.Args,
 				[]string{"version"},
 				[]string{"latest-version-count"},
@@ -74,19 +71,13 @@ to request multiple minors, pass them as a comma-separated list.`,
 			); err != nil {
 				return err
 			}
-			minors := splitVersions(version)
-			if len(minors) > 0 && cmd.Flags().Changed("latest-version-count") {
+			if len(splitVersions(version)) > 0 && cmd.Flags().Changed("latest-version-count") {
 				return fmt.Errorf("--version and --latest-version-count are mutually exclusive")
 			}
-
-			// Fall back to $GITHUB_TOKEN when --token isn't supplied. The flag's
-			// default is intentionally empty so the token does not leak into
-			// `--help` output or other places cobra prints flag defaults.
-			if token == "" {
-				token = os.Getenv("GITHUB_TOKEN")
-			}
-
-			result, err := detect.DetectK8sVersions(cmd.Context(), token, latestVersionCount, minors)
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			result, err := detect.DetectK8sVersions(cmd.Context(), token, latestVersionCount, splitVersions(version))
 			if err != nil {
 				return err
 			}
@@ -100,7 +91,7 @@ to request multiple minors, pass them as a comma-separated list.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&token, "token", "",
+	cmd.Flags().StringVar(&token, "token", os.Getenv("GITHUB_TOKEN"),
 		"GitHub personal access token; defaults to the GITHUB_TOKEN environment variable")
 	cmd.Flags().IntVar(&latestVersionCount, "latest-version-count", defaultLatestVersionCount,
 		"Number of latest minor Kubernetes versions to return (ignored when --version is set)")
