@@ -1,7 +1,7 @@
 name: auto-publish-ami
 
 on:
-  push:
+  # push:
     # branches:
     #   # - main
     #   - "*"
