@@ -25,8 +25,9 @@ set -euo pipefail
 
 # AWS_ACCOUNT_ID and DEFAULT_REGIONS must match the env: vars defined in
 # build-and-publish-ami.yml and build-ami-varsfile.yml.
-AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-027487054958}"
-DEFAULT_REGIONS="${DEFAULT_REGIONS:-ap-southeast-2 us-west-2}"
+# AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-027487054958}"
+AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-819546954734}"
+DEFAULT_REGIONS="${DEFAULT_REGIONS:-ap-southeast-2}"
 
 # DEFAULT_OS matches matrix.target in build-and-publish-ami.yml.
 # Space-separated to support multiple OS values.
