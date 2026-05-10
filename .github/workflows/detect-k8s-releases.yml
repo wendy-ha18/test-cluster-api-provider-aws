@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  id-token: write # required for OIDC authentication to AWS
+
+env:
+  AWS_ACCOUNT_ID: "027487054958"
+  AWS_REGION: "ap-southeast-2" # single region used for OIDC authentication
 
 jobs:
   detect:
@@ -38,6 +43,12 @@ jobs:
         run: |
           mkdir -p hack/tools/release-tools/ami/k8srelease/data
           ./bin/release-tool ami detect-k8s-release --token "$GITHUB_TOKEN" --output json > hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/gh-image-builder
 
       - name: Generate AMI inventory report
         env:
