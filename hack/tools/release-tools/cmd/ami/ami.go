@@ -14,14 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package cmd assembles the `release-tool ami` subcommand group and its
+// Package ami assembles the `release-tool ami` subcommand group and its
 // leaf subcommands.
-package cmd
+package ami
 
 import (
 	"github.com/spf13/cobra"
-
-	k8sreleasecmd "sigs.k8s.io/cluster-api-provider-aws/hack/tools/release-tools/ami/cmd/k8srelease"
 )
 
 // Cmd returns the `ami` subcommand group.
@@ -30,6 +28,6 @@ func Cmd() *cobra.Command {
 		Use:   "ami",
 		Short: "AMI-related release helpers",
 	}
-	cmd.AddCommand(k8sreleasecmd.Cmd())
+	cmd.AddCommand(detectK8sReleaseCmd())
 	return cmd
 }

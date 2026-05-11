@@ -2,11 +2,11 @@ name: auto-publish-ami
 
 on:
   push:
-    # branches:
-    #   # - main
+    branches:
+      - main
     #   - "*"
-    # paths:
-    #   - hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig1.json
+    paths:
+      - hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig1.json
   workflow_dispatch:
     inputs:
       versions:
@@ -64,10 +64,10 @@ jobs:
           CONFIG_PATH: hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig1.json
           OWNER_ID: '027487054958'
           REGION: ap-southeast-2
-          # clusterawsadm uses dotted OS slugs (ubuntu-22.04), image-builder
-          # uses hyphenated ones (ubuntu-2204). Keep these aligned with the
+          # clusterawsadm uses dotted OS slugs (ubuntu-24.04), image-builder
+          # uses hyphenated ones (ubuntu-2404). Keep these aligned with the
           # matrix in build-and-publish-ami.yml.
-          OS: ubuntu-22.04
+          OS: ubuntu-24.04
         run: |
           set -euo pipefail
           if [ -n "${MANUAL_VERSIONS}" ]; then

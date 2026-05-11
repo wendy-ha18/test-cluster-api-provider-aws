@@ -14,7 +14,7 @@ The table below lists all AMIs currently published in AWS account `027487054958`
 
 | AMI Name | Kubernetes Version | OS | Region | AMI ID | Created |
 | --- | --- | --- | --- | --- | --- |
-| `capa-ami-ubuntu-24.04-v1.35.2-1773581120` | `v1.35.2` | ubuntu-24.04 | ap-southeast-2 | `ami-065d95b98ad687175` | 2026-03-15T13:36:47Z |
+| `capa-ami-ubuntu-24.04-v1.35.3-1778395590` | `v1.35.3` | ubuntu-24.04 | ap-southeast-2 | `ami-05c4b2006be0a8557` | 2026-05-10T06:58:16Z |
 | `capa-ami-ubuntu-22.04-v1.35.2-1773582653` | `v1.35.2` | ubuntu-22.04 | ap-southeast-2 | `ami-04136e76627f61a0b` | 2026-03-15T14:04:21Z |
 | `capa-ami-ubuntu-22.04-v1.35.1-1773640135` | `v1.35.1` | ubuntu-22.04 | ap-southeast-2 | `ami-01da8306336074553` | 2026-03-16T06:01:02Z |
 
@@ -41,8 +41,8 @@ List of regions for which AMIs should be published (default):
 | `v1.36.0` | ubuntu-22.04 | ap-southeast-2 |
 | `v1.35.4` | ubuntu-24.04 | ap-southeast-2 |
 | `v1.35.4` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.35.3` | ubuntu-24.04 | ap-southeast-2 |
 | `v1.35.3` | ubuntu-22.04 | ap-southeast-2 |
+| `v1.35.2` | ubuntu-24.04 | ap-southeast-2 |
 | `v1.35.1` | ubuntu-24.04 | ap-southeast-2 |
 | `v1.35.0` | ubuntu-24.04 | ap-southeast-2 |
 | `v1.35.0` | ubuntu-22.04 | ap-southeast-2 |
