@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/generate-ami-inventory-report.sh
 #
-# Populates the generated sections of docs/book/src/development/ami/ami-inventory.md
+# Populates the generated sections of docs/book/src/development/ami-inventory.md
 # with live data: K8s versions, published AMIs (requires AWS credentials),
 # and default configuration values.
 #
@@ -11,8 +11,8 @@
 #   - Optional: GITHUB_TOKEN + bin/release-tool for live K8s versions;
 #               otherwise falls back to AMIBuildConfig.json
 #
-# Required environment variables (must match env: in build-and-publish-ami.yml
-# and build-ami-varsfile.yml):
+# Required environment variables (must match env: in build-ami-v2.yml
+# and build-ami-varsfile-v2.yml):
 #   AWS_ACCOUNT_ID=027487054958
 #   DEFAULT_REGIONS=ap-southeast-2
 #
@@ -24,17 +24,17 @@ set -euo pipefail
 # ── Configuration ──────────────────────────────────────────────────────────
 
 # AWS_ACCOUNT_ID and DEFAULT_REGIONS must match the env: vars defined in
-# build-and-publish-ami.yml and build-ami-varsfile.yml.
+# build-ami-v2.yml and build-ami-varsfile-v2.yml.
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-027487054958}"
 # AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-819546954734}"
 DEFAULT_REGIONS="${DEFAULT_REGIONS:-ap-southeast-2}"
 
-# DEFAULT_OS matches matrix.target in build-and-publish-ami.yml.
+# DEFAULT_OS matches matrix.target in build-ami-v2.yml.
 # Space-separated to support multiple OS values.
 DEFAULT_OS="${DEFAULT_OS:-ubuntu-24.04}"
 
 K8S_CONFIG_PATH="${K8S_CONFIG_PATH:-hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig.json}"
-TARGET_FILE="${TARGET_FILE:-docs/book/src/development/ami/ami-inventory.md}"
+TARGET_FILE="${TARGET_FILE:-docs/book/src/development/ami-inventory.md}"
 
 # ── Boilerplate ────────────────────────────────────────────────────────────
 

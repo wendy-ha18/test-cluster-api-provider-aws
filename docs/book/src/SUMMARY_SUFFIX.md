@@ -6,7 +6,7 @@
   - [AMI](./development/ami/index.md)
     - [Publishing AMIs](./development/ami/publishing-amis.md)
     - [Detect Kubernetes Release Versions](./development/ami/detect-k8s-release.md)
-    - [CAPA AMIs Inventory](./development/ami/ami-inventory.md)
+    - [CAPA AMIs Inventory](./development/ami-inventory.md)
 - [CRD Reference](./crd/index.md)
 - [Reference](./topics/reference/reference.md)
   - [Glossary](./topics/reference/glossary.md)
