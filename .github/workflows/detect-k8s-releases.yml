@@ -40,8 +40,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p hack/tools/release-tools/ami/k8srelease/data
-          ./bin/release-tool ami detect-k8s-release --token "$GITHUB_TOKEN" --output json > hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig.json
+          mkdir -p hack/tools/release-tools/internal/ami/k8srelease/data
+          ./bin/release-tool ami detect-k8s-release --token "$GITHUB_TOKEN" --output json > hack/tools/release-tools/internal/ami/k8srelease/data/AMIK8sBuildConfig.json
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
@@ -51,7 +51,7 @@ jobs:
 
       - name: Generate AMI inventory report
         env:
-          K8S_CONFIG_PATH: hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig.json
+          K8S_CONFIG_PATH: hack/tools/release-tools/internal/ami/k8srelease/data/AMIK8sBuildConfig.json
         run: bash scripts/generate-ami-inventory-report.sh
 
       - name: Open PR if versions changed

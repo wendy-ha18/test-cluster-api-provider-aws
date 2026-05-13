@@ -1,67 +1,59 @@
 #!/usr/bin/env bash
-# scripts/generate-ami-inventory-report.sh
+# Copyright 2026 The Kubernetes Authors.
 #
-# Populates the generated sections of docs/book/src/development/ami-inventory.md
-# with live data: K8s versions, published AMIs (requires AWS credentials),
-# and default configuration values.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # Prerequisites:
-#   - jq  (brew install jq)
-#   - Optional: AWS credentials + bin/clusterawsadm for the AMI list section
-#   - Optional: GITHUB_TOKEN + bin/release-tool for live K8s versions;
-#               otherwise falls back to AMIBuildConfig.json
-#
-# Required environment variables (must match env: in build-ami-v2.yml
-# and build-ami-varsfile-v2.yml):
-#   AWS_ACCOUNT_ID=027487054958
-#   DEFAULT_REGIONS=ap-southeast-2
-#
-# Optional overrides:
-#   DEFAULT_OS=ubuntu-24.04   K8S_CONFIG_PATH=...   TARGET_FILE=...
+#   GITHUB_TOKEN       — GitHub personal access token
+#   AWS credentials    — for fetching published AMIs
+#   bin/release-tool   — build: go build -o bin/release-tool ./hack/tools/release-tools
+#   bin/clusterawsadm  — build: go build -o bin/clusterawsadm ./cmd/clusterawsadm
+#   jq                 — brew install jq
 
 set -euo pipefail
 
-# ── Configuration ──────────────────────────────────────────────────────────
+# --- Constants --- 
 
-# AWS_ACCOUNT_ID and DEFAULT_REGIONS must match the env: vars defined in
-# build-ami-v2.yml and build-ami-varsfile-v2.yml.
-AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-027487054958}"
-# AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-819546954734}"
-DEFAULT_REGIONS="${DEFAULT_REGIONS:-ap-southeast-2}"
+AWS_ACCOUNT_ID="027487054958"
+DEFAULT_REGIONS="ap-southeast-2"
+DEFAULT_OS="ubuntu-24.04,ubuntu-22.04"
 
-# DEFAULT_OS matches matrix.target in build-ami-v2.yml.
-# Space-separated to support multiple OS values.
-DEFAULT_OS="${DEFAULT_OS:-ubuntu-24.04}"
+TARGET_FILE="docs/book/src/development/ami-inventory.md"
 
-K8S_CONFIG_PATH="${K8S_CONFIG_PATH:-hack/tools/release-tools/ami/k8srelease/data/AMIBuildConfig.json}"
-TARGET_FILE="${TARGET_FILE:-docs/book/src/development/ami-inventory.md}"
-
-# ── Boilerplate ────────────────────────────────────────────────────────────
+# --- Setup --- 
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-cd "${REPO_ROOT}"
-
-REPORT_DATE="$(date -u +%Y-%m-%d)"
+cd "${SCRIPT_DIR}/.."
 
 die()  { echo "ERROR: $*" >&2; exit 1; }
 info() { echo "==> $*" >&2; }
 
-command -v jq &>/dev/null || die "'jq' is required but not found. Install with: brew install jq"
-[ -f "${TARGET_FILE}" ] || die "Target file not found: ${TARGET_FILE}"
+command -v jq &>/dev/null   || die "'jq' is required. Install: brew install jq"
+[ -n "${GITHUB_TOKEN:-}" ]  || die "GITHUB_TOKEN is not set"
+[ -x "bin/release-tool" ]   || die "bin/release-tool not found. Build: go build -o bin/release-tool ./hack/tools/release-tools"
+[ -x "bin/clusterawsadm" ]  || die "bin/clusterawsadm not found. Build: go build -o bin/clusterawsadm ./cmd/clusterawsadm"
+[ -f "${TARGET_FILE}" ]     || die "Target file not found: ${TARGET_FILE}"
 
-# ── Helpers ────────────────────────────────────────────────────────────────
+# --- replace_section <marker-name> <content> --- 
+# Replaces the lines after <!-- $<name> --> up to the next ## or ### heading.
+# Idempotent — reruns overwrite previous output.
 
-# replace_after_marker <variable-name> <content>
-# Finds <!-- $<name> --> and replaces the lines that follow it (up to the next
-# ## or ### heading) with <content>. Idempotent — reruns overwrite previous output.
-replace_after_marker() {
+replace_section() {
   local marker="<!-- \$$1 -->"
   local content="$2"
   local tmp
   tmp="$(mktemp)"
   printf '%s\n' "${content}" > "${tmp}"
-
   awk -v m="${marker}" -v f="${tmp}" '
     skip && /^#{2,3} / { skip=0 }
     skip               { next }
@@ -72,142 +64,93 @@ replace_after_marker() {
   rm -f "${tmp}"
 }
 
-# ── Step 1: Update date in title ───────────────────────────────────────────
+# --- 1. Report date --- 
 
+REPORT_DATE="$(date -u +%Y-%m-%d)"
 info "Setting report date to ${REPORT_DATE}..."
 sed -i.bak "s/^# CAPA AMIs Inventory .*/# CAPA AMIs Inventory ${REPORT_DATE}/" "${TARGET_FILE}" \
   && rm -f "${TARGET_FILE}.bak"
 
-# ── Step 2: K8s versions ───────────────────────────────────────────────────
-# Prefer a live GitHub query when GITHUB_TOKEN + release-tool are available;
-# fall back to the committed AMIBuildConfig.json.
+# --- 2. Defaults sections --- 
 
-info "Resolving Kubernetes versions..."
-if [ -n "${GITHUB_TOKEN:-}" ] && [ -x "bin/release-tool" ]; then
-  info "  source: GitHub API (release-tool)"
-  K8S_JSON="$(./bin/release-tool ami detect-k8s-release --token "$GITHUB_TOKEN" --output json)"
-elif [ -f "${K8S_CONFIG_PATH}" ]; then
-  info "  source: ${K8S_CONFIG_PATH}"
-  K8S_JSON="$(cat "${K8S_CONFIG_PATH}")"
-else
-  die "No K8s version source. Set GITHUB_TOKEN and build bin/release-tool, or ensure ${K8S_CONFIG_PATH} exists."
-fi
+info "Populating defaults..."
 
-VERSION_COUNT="$(echo "${K8S_JSON}" | jq '.versions | length')"
-[ "${VERSION_COUNT}" -gt 0 ] || die "K8s version list is empty."
-
-# ── Step 3: AMI list ───────────────────────────────────────────────────────
-# Skipped when no AWS credentials are detected (e.g. CI without AWS access).
-
-if [ -z "${AWS_ACCESS_KEY_ID:-}" ] && \
-   [ -z "${AWS_WEB_IDENTITY_TOKEN_FILE:-}" ] && \
-   [ -z "${AWS_ROLE_ARN:-}" ] && \
-   [ -z "${AWS_PROFILE:-}" ] && \
-   [ -z "${AWS_DEFAULT_PROFILE:-}" ] && \
-   [ ! -f "${HOME}/.aws/credentials" ]; then
-  info "No AWS credentials detected — skipping AMI list."
-  AMI_JSON='{"apiVersion":"","kind":"","items":[]}'
-else
-  if [ ! -x "bin/clusterawsadm" ]; then
-    info "bin/clusterawsadm not found — building (this may take a minute)..."
-    go build -o bin/clusterawsadm ./cmd/clusterawsadm
-  fi
-  info "Fetching AMI list from AWS account ${AWS_ACCOUNT_ID}..."
-  AMI_JSON="$(./bin/clusterawsadm ami list --owner-id "${AWS_ACCOUNT_ID}" -o json 2>/dev/null \
-    || echo '{"apiVersion":"","kind":"","items":[]}')"
-fi
-
-AMI_COUNT="$(echo "${AMI_JSON}" | jq '.items | length')"
-info "  found ${AMI_COUNT} AMI(s)."
-
-# ── Step 4: Populate sections ──────────────────────────────────────────────
-
-info "Populating default-os..."
 os_content=""
-for os in ${DEFAULT_OS}; do
+for os in $(echo "${DEFAULT_OS}" | tr ',' ' '); do
   os_content="${os_content}- \`${os}\`
 "
 done
-replace_after_marker "default_os" "${os_content%?}"
+replace_section "default_os" "${os_content%?}"
 
-info "Populating default-account..."
-replace_after_marker "default_aws_account_id" "- \`${AWS_ACCOUNT_ID}\`"
+replace_section "default_aws_account_id" "- \`${AWS_ACCOUNT_ID}\`"
 
-info "Populating default-region..."
 region_content=""
-for region in ${DEFAULT_REGIONS}; do
+for region in $(echo "${DEFAULT_REGIONS}" | tr ',' ' '); do
   region_content="${region_content}- \`${region}\`
 "
 done
-replace_after_marker "default_regions" "${region_content%?}"
+replace_section "default_regions" "${region_content%?}"
 
-info "Populating k8s-release-table..."
-k8s_content="| Minor Version | Patch Versions |
-| --- | --- |
-$(echo "${K8S_JSON}" | jq -r '
-  .versions[] |
-  "| `" + .minor + "` | " + (.patches | map("`" + . + "`") | join(", ")) + " |"
-')"
-replace_after_marker "k8s_release_table" "${k8s_content}"
+# --- 3. Supported Kubernetes versions --- 
 
-info "Populating ami-table..."
+info "Fetching supported Kubernetes versions..."
+k8s_table="$(./bin/release-tool ami detect-k8s-release \
+  --token "${GITHUB_TOKEN}" \
+  -o json | jq -r '
+    "| Minor Version | Patch Versions |",
+    "| --- | --- |",
+    (.versions[] |
+      "| `" + .minor + "` | " + (.patches | map("`" + . + "`") | join(", ")) + " |"
+    )
+  ')"
+replace_section "k8s_release_table" "${k8s_table}"
+
+# --- 4. Published AMIs --- 
+
+info "Fetching published AMIs from account ${AWS_ACCOUNT_ID}..."
+AMI_JSON="$(./bin/clusterawsadm ami list --owner-id "${AWS_ACCOUNT_ID}" -o json)"
+AMI_COUNT="$(echo "${AMI_JSON}" | jq '.items | length')"
+info "  found ${AMI_COUNT} AMI(s)."
+
 if [ "${AMI_COUNT}" -eq 0 ]; then
   ami_content="_No AMIs found._"
 else
-  ami_rows="$(echo "${AMI_JSON}" | jq -r '
-    .items[]? |
-    "| `" + (.metadata.name           // "-") + "`" +
-    " | `" + (.spec.kubernetesVersion // "-") + "`" +
-    " | "  + (.spec.os                // "-") +
-    " | "  + (.spec.region            // "-") +
-    " | `" + (.spec.imageID           // "-") + "` |"
-  ')"
-  ami_content="| AMI Name | Kubernetes Version | OS | Region | AMI ID |
-| --- | --- | --- | --- | --- |
-${ami_rows}"
-fi
-replace_after_marker "ami-table" "${ami_content}"
-
-# ── Step 5: Missing AMIs ───────────────────────────────────────────────────
-# Cross-product of (K8s patch versions × DEFAULT_OS × DEFAULT_REGIONS)
-# minus what is already published.
-
-info "Populating missing-ami-table..."
-published_lookup=""
-if [ "${AMI_COUNT}" -gt 0 ]; then
-  published_lookup="$(echo "${AMI_JSON}" | jq -r '
-    .items[]? |
-    (if (.spec.kubernetesVersion | startswith("v")) then "" else "v" end)
-    + .spec.kubernetesVersion + "/" + .spec.os + "/" + .spec.region
+  ami_content="$(echo "${AMI_JSON}" | jq -r '
+    "| AMI Name | Kubernetes Version | OS | Region | AMI ID |",
+    "| --- | --- | --- | --- | --- |",
+    (.items[]? |
+      "| `" + (.metadata.name           // "-") + "`" +
+      " | `" + (.spec.kubernetesVersion // "-") + "`" +
+      " | "  + (.spec.os                // "-") +
+      " | "  + (.spec.region            // "-") +
+      " | `" + (.spec.imageID           // "-") + "` |"
+    )
   ')"
 fi
+replace_section "ami-table" "${ami_content}"
 
-missing_rows=()
-while IFS= read -r raw_version; do
-  version="v${raw_version}"
-  for os in ${DEFAULT_OS}; do
-    for region in ${DEFAULT_REGIONS}; do
-      if ! grep -qF "${version}/${os}/${region}" <<< "${published_lookup:-}"; then
-        missing_rows+=("| \`${version}\` | ${os} | ${region} |")
-      fi
-    done
-  done
-done < <(echo "${K8S_JSON}" | jq -r '.versions[].patches[]')
+# --- 5. Missing AMIs --- 
 
-if [ "${#missing_rows[@]}" -eq 0 ]; then
-  missing_content="_No missing AMIs._"
-else
-  missing_content="| Kubernetes Version | OS | Region |
-| --- | --- | --- |
-$(printf '%s\n' "${missing_rows[@]}")"
-fi
-replace_after_marker "missing_ami_table" "${missing_content}"
+info "Computing missing AMIs..."
+missing_content="$(echo "${AMI_JSON}" | ./bin/release-tool ami find-missing-ami \
+  --token "${GITHUB_TOKEN}" \
+  --os "${DEFAULT_OS}" \
+  --region "${DEFAULT_REGIONS}" \
+  -o json | jq -r '
+    if (.items | length) == 0 then "_No missing AMIs._"
+    else
+      "| Kubernetes Version | OS | Region |",
+      "| --- | --- | --- |",
+      (.items[] | "| `" + .kubernetesVersion + "` | " + .os + " | " + .region + " |")
+    end
+  ')"
+replace_section "missing_ami_table" "${missing_content}"
 
-# ── Step 6: EOL AMIs ──────────────────────────────────────────────────────
-# Published AMIs whose minor Kubernetes version is no longer in the K8s table.
+# --- 6. EOL AMIs --- 
 
-info "Populating eol-ami-table..."
-supported_minors="$(echo "${K8S_JSON}" | jq -r '.versions[].minor')"
+info "Computing EOL AMIs..."
+supported_minors="$(echo "${AMI_JSON}" | jq -r '.items[]?.spec.kubernetesVersion' \
+  | sed 's/^v//' | cut -d'.' -f1,2 | sort -u)"
 
 eol_rows=()
 if [ "${AMI_COUNT}" -gt 0 ]; then
@@ -233,6 +176,6 @@ else
 | --- | --- | --- | --- | --- |
 $(printf '%s\n' "${eol_rows[@]}")"
 fi
-replace_after_marker "eol_ami_table" "${eol_content}"
+replace_section "eol_ami_table" "${eol_content}"
 
 info "Done — updated ${TARGET_FILE}"

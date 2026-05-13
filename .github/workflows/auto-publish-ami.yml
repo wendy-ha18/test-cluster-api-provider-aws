@@ -7,6 +7,7 @@ on:
     #   - "*"
     paths:
       - hack/tools/release-tools/ami/data/AMIBuildConfig1.json
+
   workflow_dispatch:
     inputs:
       versions:
@@ -27,6 +28,7 @@ permissions:
 
 jobs:
   derive:
+  # 1st: run the missing amis command to get json file of missing amis /tmp/
     name: Derive packer inputs
     runs-on: ubuntu-latest
     outputs:
@@ -61,7 +63,7 @@ jobs:
         id: versions
         env:
           MANUAL_VERSIONS: ${{ inputs.versions }}
-          CONFIG_PATH: hack/tools/release-tools/ami/data/AMIBuildConfig1.json
+          CONFIG_PATH: hack/tools/release-tools/ami/data/AMIBuildConfig1.json # use missing amis json to input here
           OWNER_ID: '027487054958'
           REGION: ap-southeast-2
           # clusterawsadm uses dotted OS slugs (ubuntu-24.04), image-builder
@@ -246,6 +248,9 @@ jobs:
   # Final gate: if any version could not be derived, fail the workflow even
   # if all derived versions built successfully. Mirrors the original
   # 'best-effort dispatch + exit 1 at end' behaviour.
+
+# cleanup the missing amis json file after the workflow is done and 
+
   report:
     name: Report derivation failures
     needs: [derive, build]
