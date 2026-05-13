@@ -51,6 +51,7 @@ jobs:
 
       - name: Generate AMI inventory report
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           K8S_CONFIG_PATH: hack/tools/release-tools/internal/ami/k8srelease/data/AMIK8sBuildConfig.json
         run: bash scripts/generate-ami-inventory-report.sh
 
