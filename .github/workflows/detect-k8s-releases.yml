@@ -36,10 +36,6 @@ jobs:
         working-directory: hack/tools/release-tools
         run: go build -o ../../../bin/release-tool .
 
-      - name: Build clusterawsadm
-        working-directory: cmd/clusterawsadm
-        run: go build -o bin/clusterawsadm 
-
       - name: Detect latest K8s releases (CAPA policy)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

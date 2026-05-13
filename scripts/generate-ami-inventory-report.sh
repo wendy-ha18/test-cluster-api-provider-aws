@@ -40,9 +40,10 @@ info() { echo "==> $*" >&2; }
 
 command -v jq &>/dev/null   || die "'jq' is required. Install: brew install jq"
 [ -n "${GITHUB_TOKEN:-}" ]  || die "GITHUB_TOKEN is not set"
-[ -x "bin/release-tool" ]   || die "bin/release-tool not found. Build: go build -o bin/release-tool ./hack/tools/release-tools"
-[ -x "bin/clusterawsadm" ]  || die "bin/clusterawsadm not found. Build: go build -o bin/clusterawsadm ./cmd/clusterawsadm"
 [ -f "${TARGET_FILE}" ]     || die "Target file not found: ${TARGET_FILE}"
+
+[ -x "bin/release-tool" ]  || { info "Building bin/release-tool...";  go build -o bin/release-tool  ./hack/tools/release-tools; }
+[ -x "bin/clusterawsadm" ] || { info "Building bin/clusterawsadm..."; go build -o bin/clusterawsadm ./cmd/clusterawsadm; }
 
 # --- replace_section <marker-name> <content> --- 
 # Replaces the lines after <!-- $<name> --> up to the next ## or ### heading.
