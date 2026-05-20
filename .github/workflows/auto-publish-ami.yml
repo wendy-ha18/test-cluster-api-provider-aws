@@ -3,7 +3,8 @@ name: auto-publish-ami
 on:
   push:
     branches:
-      - main
+      # - main
+      - "*"
     paths:
       - hack/tools/release-tools/ami/data/AMIBuildConfig.json
 
@@ -49,7 +50,7 @@ jobs:
         # is irrelevant.
         run: |
           go build -o bin/clusterawsadm ./cmd/clusterawsadm
-          go build -o bin/release-tool ./hack/tools/release-tools
+          go build -o bin/release-tool  ./hack/tools/release-tools
 
       - name: Configure AWS credentials
         # Required for `clusterawsadm ami list` to call ec2:DescribeImages.
