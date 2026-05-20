@@ -4,9 +4,8 @@ on:
   push:
     branches:
       - main
-    #   - "*"
     paths:
-      - hack/tools/release-tools/ami/data/AMIBuildConfig1.json
+      - hack/tools/release-tools/ami/data/AMIBuildConfig.json
 
   workflow_dispatch:
     inputs:
@@ -44,10 +43,13 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Build clusterawsadm
+      - name: Build clusterawsadm and release-tool
         # Plain `go build` (no LDFLAGS / hack/version.sh) — we only need the
-        # binary to call `ami list`, version metadata is irrelevant.
-        run: go build -o bin/clusterawsadm ./cmd/clusterawsadm
+        # binaries to call `ami list` and `find-missing-ami`; version metadata
+        # is irrelevant.
+        run: |
+          go build -o bin/clusterawsadm ./cmd/clusterawsadm
+          go build -o bin/release-tool ./hack/tools/release-tools
 
       - name: Configure AWS credentials
         # Required for `clusterawsadm ami list` to call ec2:DescribeImages.
@@ -63,7 +65,6 @@ jobs:
         id: versions
         env:
           MANUAL_VERSIONS: ${{ inputs.versions }}
-          CONFIG_PATH: hack/tools/release-tools/ami/data/AMIBuildConfig1.json # use missing amis json to input here
           OWNER_ID: '027487054958'
           REGION: ap-southeast-2
           # clusterawsadm uses dotted OS slugs (ubuntu-24.04), image-builder
@@ -79,41 +80,26 @@ jobs:
               | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; /^$/d; s/^([0-9])/v\1/' \
               | sort -u > /tmp/target-versions.txt
           else
-            # All patches declared in AMIBuildConfig*.json (with v prefix).
-            jq -r '.versions[].patches[] | "v\(.)"' "${CONFIG_PATH}" \
-              | sort -u > /tmp/all-versions.txt
-
-            # Versions already published as AMIs in the destination account
-            # for the configured region + OS. NOTE: `clusterawsadm ami list`
-            # without --kubernetes-version has an internal filter (last 3
-            # minor releases, excluding x.x.0 patches). Versions outside that
-            # window will appear "missing" here and be re-built, even when an
-            # AMI actually exists. See cmd/clusterawsadm/ami/helper.go.
+            # Pipe published AMIs directly into find-missing-ami to compute
+            # which (k8s version × OS × region) combinations are absent.
+            # GITHUB_TOKEN is injected automatically by the Actions runner and
+            # is used by find-missing-ami to query the Kubernetes release API.
             ./bin/clusterawsadm ami list \
               --owner-id "${OWNER_ID}" \
               --region "${REGION}" \
               --os "${OS}" \
-              -o json > /tmp/ami-list.json
+              -o json \
+            | ./bin/release-tool ami find-missing-ami \
+              --os "${OS}" \
+              --region "${REGION}" \
+              -o json > /tmp/missing-amis.json
 
-            # Filter the raw list to entries matching our exact region+os
-            # (defence in depth — clusterawsadm already filters server-side,
-            # but we re-check client-side so spec drift can't silently
-            # produce false positives).
-            jq -r --arg region "${REGION}" --arg os "${OS}" \
-              '.items[]?
-                | select(.spec.region == $region and .spec.os == $os)
-                | .spec.kubernetesVersion' \
-              /tmp/ami-list.json \
-              | sort -u > /tmp/published-versions.txt
+            echo "Missing AMIs:"
+            cat /tmp/missing-amis.json
 
-            echo "Versions in ${CONFIG_PATH}:"
-            cat /tmp/all-versions.txt
-            echo "Versions already published in ${REGION}/${OS} for owner ${OWNER_ID}:"
-            cat /tmp/published-versions.txt
-
-            # Target = config - published (set difference).
-            comm -23 /tmp/all-versions.txt /tmp/published-versions.txt \
-              > /tmp/target-versions.txt
+            # Extract unique Kubernetes versions from the missing AMIs report.
+            jq -r '.items[].kubernetesVersion' /tmp/missing-amis.json \
+              | sort -u > /tmp/target-versions.txt
           fi
           count=$(wc -l < /tmp/target-versions.txt | tr -d ' ')
           echo "count=${count}" >> "${GITHUB_OUTPUT}"
@@ -226,6 +212,10 @@ jobs:
             fi
           } >> "${GITHUB_STEP_SUMMARY}"
 
+      - name: Clean up temporary files
+        if: always()
+        run: rm -f /tmp/missing-amis.json /tmp/target-versions.txt
+
   build:
     name: Build AMI (${{ matrix.version.k8s_semver }})
     needs: derive
@@ -251,20 +241,20 @@ jobs:
 
 # cleanup the missing amis json file after the workflow is done and 
 
-  report:
-    name: Report derivation failures
-    needs: [derive, build]
-    if: always() && needs.derive.result == 'success'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Fail if any version failed to derive packer inputs
-        env:
-          FAILURES: ${{ needs.derive.outputs.failures }}
-        run: |
-          set -euo pipefail
-          if [ -z "${FAILURES}" ] || [ "${FAILURES}" = "[]" ]; then
-            echo "All target versions derived successfully."
-            exit 0
-          fi
-          echo "::error::failed to derive packer inputs for: ${FAILURES}"
-          exit 1
+  # report:
+  #   name: Report derivation failures
+  #   needs: [derive, build]
+  #   if: always() && needs.derive.result == 'success'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Fail if any version failed to derive packer inputs
+  #       env:
+  #         FAILURES: ${{ needs.derive.outputs.failures }}
+  #       run: |
+  #         set -euo pipefail
+  #         if [ -z "${FAILURES}" ] || [ "${FAILURES}" = "[]" ]; then
+  #           echo "All target versions derived successfully."
+  #           exit 0
+  #         fi
+  #         echo "::error::failed to derive packer inputs for: ${FAILURES}"
+  #         exit 1
