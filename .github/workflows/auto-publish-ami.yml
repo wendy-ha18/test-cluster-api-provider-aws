@@ -3,10 +3,10 @@ name: auto-publish-ami
 on:
   push:
     branches:
-      # - main
-      - "*"
+      - main
+      # - "*"
     paths:
-      - hack/tools/release-tools/ami/data/AMIBuildConfig.json
+      - hack/tools/release-tools/internal/ami/k8srelease/data/AMIK8sBuildConfig.json
 
   workflow_dispatch:
     inputs:
