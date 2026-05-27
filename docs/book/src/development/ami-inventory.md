@@ -80,9 +80,13 @@ The list of all AMIs currently published in the CAPA AWS account. It is generate
 | `capa-ami-ubuntu-22.04-v1.35.1-1778238211` | `v1.35.1` | ubuntu-22.04 | ap-southeast-1 | `ami-0669fd559d9dc7ff5` |
 | `capa-ami-flatcar-stable-v1.35.1-1773646910` | `v1.35.1` | flatcar-stable | ap-southeast-1 | `ami-05038371fb899129f` |
 | `capa-ami-ubuntu-24.04-v1.36.0-1778483638` | `v1.36.0` | ubuntu-24.04 | ap-southeast-2 | `ami-02bcbeb1fafc5e1dd` |
+| `capa-ami-ubuntu-24.04-v1.36.1-1779863250` | `v1.36.1` | ubuntu-24.04 | ap-southeast-2 | `ami-0b538c1e20b746dbd` |
+| `capa-ami-ubuntu-22.04-v1.36.1-1779861886` | `v1.36.1` | ubuntu-22.04 | ap-southeast-2 | `ami-0d9ac19f3b810c955` |
+| `capa-ami-ubuntu-22.04-v1.35.4-1779860611` | `v1.35.4` | ubuntu-22.04 | ap-southeast-2 | `ami-0468fa1076952c3d5` |
 | `capa-ami-ubuntu-24.04-v1.35.3-1778395590` | `v1.35.3` | ubuntu-24.04 | ap-southeast-2 | `ami-05c4b2006be0a8557` |
 | `capa-ami-ubuntu-22.04-v1.35.2-1773582653` | `v1.35.2` | ubuntu-22.04 | ap-southeast-2 | `ami-04136e76627f61a0b` |
 | `capa-ami-ubuntu-22.04-v1.35.1-1773640135` | `v1.35.1` | ubuntu-22.04 | ap-southeast-2 | `ami-01da8306336074553` |
+| `capa-ami-ubuntu-22.04-v1.34.3-1779859221` | `v1.34.3` | ubuntu-22.04 | ap-southeast-2 | `ami-0edf90e21a5ef1a6c` |
 | `capa-ami-ubuntu-24.04-v1.35.3-1778395590` | `v1.35.3` | ubuntu-24.04 | ca-central-1 | `ami-0873781038196d006` |
 | `capa-ami-ubuntu-24.04-v1.35.2-1773581120` | `v1.35.2` | ubuntu-24.04 | ca-central-1 | `ami-0d94f7bc28f13e5a1` |
 | `capa-ami-ubuntu-22.04-v1.35.2-1773582653` | `v1.35.2` | ubuntu-22.04 | ca-central-1 | `ami-00018e3387c10c041` |
@@ -150,7 +154,32 @@ AMIs that should be published for the Kubernetes versions in the Supported Kuber
 <!-- $missing_ami_table -->
 | Kubernetes Version | OS | Region |
 | --- | --- | --- |
-| `v1.36.1` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.36.0` | ubuntu-22.04 | ap-southeast-2 |
+| `v1.35.5` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.35.5` | ubuntu-22.04 | ap-southeast-2 |
+| `v1.35.4` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.35.3` | ubuntu-22.04 | ap-southeast-2 |
+| `v1.35.2` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.35.1` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.35.0` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.35.0` | ubuntu-22.04 | ap-southeast-2 |
+| `v1.34.8` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.34.8` | ubuntu-22.04 | ap-southeast-2 |
+| `v1.34.7` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.34.7` | ubuntu-22.04 | ap-southeast-2 |
+| `v1.34.6` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.34.6` | ubuntu-22.04 | ap-southeast-2 |
+| `v1.34.5` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.34.5` | ubuntu-22.04 | ap-southeast-2 |
+| `v1.34.4` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.34.4` | ubuntu-22.04 | ap-southeast-2 |
+| `v1.34.3` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.34.2` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.34.2` | ubuntu-22.04 | ap-southeast-2 |
+| `v1.34.1` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.34.1` | ubuntu-22.04 | ap-southeast-2 |
+| `v1.34.0` | ubuntu-24.04 | ap-southeast-2 |
+| `v1.34.0` | ubuntu-22.04 | ap-southeast-2 |
 ## EOL AMIs
 
 <!-- $eol_ami_table -->
