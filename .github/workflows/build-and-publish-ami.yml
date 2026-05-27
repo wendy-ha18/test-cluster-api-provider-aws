@@ -91,7 +91,7 @@ jobs:
     strategy:
       matrix:
         # target: ['ubuntu-2204', 'ubuntu-2404', 'flatcar']
-        target: ["ubuntu-2404"]
+        target: ['ubuntu-2204', 'ubuntu-2404']
       max-parallel: 1
       fail-fast: false
     name: Build and publish CAPA AMIs
