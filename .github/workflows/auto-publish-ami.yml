@@ -4,8 +4,9 @@ on:
   push:
     branches:
       - main
+      # - "*"
     paths:
-      - hack/tools/release-tools/ami/data/AMIBuildConfig.json
+      - hack/tools/release-tools/internal/ami/k8srelease/data/AMIK8sBuildConfig.json
 
   workflow_dispatch:
     inputs:
@@ -43,13 +44,15 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Build clusterawsadm and release-tool
+      - name: Build clusterawsadm
         # Plain `go build` (no LDFLAGS / hack/version.sh) — we only need the
-        # binaries to call `ami list` and `find-missing-ami`; version metadata
-        # is irrelevant.
-        run: |
-          go build -o bin/clusterawsadm ./cmd/clusterawsadm
-          go build -o bin/release-tool ./hack/tools/release-tools
+        # binary to call `ami list`; version metadata is irrelevant.
+        run: go build -o bin/clusterawsadm ./cmd/clusterawsadm
+
+      - name: Build release-tool
+        # release-tools is a separate Go module, so it must be built from its
+        # own directory. The output path is relative to that directory.
+        run: go build -C hack/tools/release-tools -o ../../../bin/release-tool .
 
       - name: Configure AWS credentials
         # Required for `clusterawsadm ami list` to call ec2:DescribeImages.
