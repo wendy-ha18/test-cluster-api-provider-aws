@@ -151,35 +151,6 @@ AMIs that should be published for the Kubernetes versions in the Supported Kuber
 | Kubernetes Version | OS | Region |
 | --- | --- | --- |
 | `v1.36.1` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.36.1` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.36.0` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.35.5` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.35.5` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.35.4` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.35.4` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.35.3` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.35.2` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.35.1` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.35.0` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.35.0` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.8` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.8` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.7` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.7` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.6` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.6` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.5` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.5` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.4` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.4` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.3` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.3` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.2` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.2` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.1` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.1` | ubuntu-22.04 | ap-southeast-2 |
-| `v1.34.0` | ubuntu-24.04 | ap-southeast-2 |
-| `v1.34.0` | ubuntu-22.04 | ap-southeast-2 |
 ## EOL AMIs
 
 <!-- $eol_ami_table -->
